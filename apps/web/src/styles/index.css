@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+/* Glass surface utility — translucent fill + backdrop blur + soft border.
+   Used sparingly per the design system; never at the cost of contrast. */
+@layer components {
+  .glass {
+    @apply border backdrop-blur-md;
+    background-color: rgba(255, 255, 255, 0.6);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+  .dark .glass {
+    background-color: rgba(15, 23, 42, 0.55);
+    border-color: rgba(148, 163, 184, 0.18);
+  }
+}
+
+/* Respect reduced-motion globally for decorative animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+body {
+  @apply bg-neutral-50 text-neutral-900 antialiased;
+}
+.dark body {
+  @apply bg-neutral-950 text-neutral-100;
+}

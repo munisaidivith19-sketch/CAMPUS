@@ -1,0 +1,10 @@
+# Prometheus scrape config (reference). The API exposes /metrics in a later phase
+# (OpenTelemetry/prom-client). Free/local: Prometheus + Grafana in Docker.
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'campusconnect-api'
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['backend:4000']

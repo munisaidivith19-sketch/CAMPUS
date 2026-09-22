@@ -1,0 +1,133 @@
+# =============================================================================
+# CampusConnect — Local development stack (Docker Compose)
+# =============================================================================
+# Brings up the infrastructure the local prototype needs, all free / ₹0:
+#   - mongodb  : sole primary database (single-node replica set for txns)
+#   - redis    : rate limiting / cache / queues (infrastructure only)
+#   - mailpit  : catches outgoing dev email (SMTP :1025, UI :8025)
+#   - clamav   : malware scanning for uploads (heavy; profile-gated)
+#
+# The `server` and `web` app containers are added in later phases once there
+# is code to run. For now this file provisions backing services only, per the
+# rule "only include services when needed".
+#
+# Usage:  docker compose up -d          (core services)
+#         docker compose --profile scan up -d   (also start ClamAV)
+# =============================================================================
+
+name: campusconnect
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: cc-mongodb
+    restart: unless-stopped
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - cc-data
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  # One-shot: initialize the single-node replica set so Mongoose transactions work.
+  mongo-init:
+    image: mongo:7
+    container_name: cc-mongo-init
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: "no"
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mongosh --host mongodb:27017 --quiet --eval '
+          try { rs.status() } catch (e) {
+            rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "localhost:27017" }] })
+          }'
+    networks:
+      - cc-data
+
+  redis:
+    image: redis:7-alpine
+    container_name: cc-redis
+    restart: unless-stopped
+    command: ["redis-server", "--save", "60", "1", "--loglevel", "warning"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - cc-data
+    deploy:
+      resources:
+        limits:
+          memory: 256m
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: cc-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI — open http://localhost:8025
+    environment:
+      MP_MAX_MESSAGES: "500"
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8025"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cc-app
+
+  clamav:
+    image: clamav/clamav:stable
+    container_name: cc-clamav
+    restart: unless-stopped
+    profiles: ["scan"] # only starts with:  --profile scan
+    ports:
+      - "3310:3310"
+    volumes:
+      - clamav-db:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    networks:
+      - cc-app
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+networks:
+  cc-data:
+    driver: bridge
+  cc-app:
+    driver: bridge
+
+volumes:
+  mongo-data:
+  redis-data:
+  clamav-db:

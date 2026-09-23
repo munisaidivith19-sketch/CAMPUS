@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "lint": "eslint \"src/**/*.ts\"",
-    "test": "vitest run",
+    "test": "vitest run --reporter=default --reporter=json --outputFile.json=./.vitest-report.json && node ../scripts/check-test-floor.mjs ./.vitest-report.json",
+    "test:only": "vitest run",
     "test:watch": "vitest",
     "seed": "tsx src/db/seed.ts"
   },

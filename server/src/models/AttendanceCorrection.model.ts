@@ -6,9 +6,9 @@
  * transactional with the attendance update (see attendance.service.ts): the record and the
  * decision move together or not at all.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { AttendanceStatus, CorrectionStatus } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface AttendanceCorrectionAttrs {
   institutionId: ObjectId;
@@ -56,7 +56,7 @@ correctionSchema.index(
 );
 
 export type AttendanceCorrectionDocument = HydratedDocument<AttendanceCorrectionAttrs & Timestamps>;
-export const AttendanceCorrectionModel = model<AttendanceCorrectionAttrs & Timestamps>(
+export const AttendanceCorrectionModel = defineModel<AttendanceCorrectionAttrs & Timestamps>(
   'AttendanceCorrection',
   correctionSchema,
 );

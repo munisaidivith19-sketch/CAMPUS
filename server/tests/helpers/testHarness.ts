@@ -20,6 +20,13 @@ import { resetRateLimiters } from '../../src/middleware/rateLimit.middleware.js'
 export const app = buildApp();
 export const api = (): supertest.Agent => supertest.agent(app);
 
+/**
+ * Connect once per process and stay connected.
+ *
+ * Every suite calls this in `beforeAll`, and they all share one worker process, so this is a
+ * no-op after the first. Mongoose's connection is a process-global singleton — tearing it down
+ * and rebuilding it 23 times in one process is pure churn, and it was destabilising the run.
+ */
 export async function connectTestDatabase(): Promise<void> {
   if (mongoose.connection.readyState === 0) {
     await mongoose.connect(config.MONGODB_URI, {
@@ -29,8 +36,15 @@ export async function connectTestDatabase(): Promise<void> {
   }
 }
 
+/**
+ * Deliberately a no-op.
+ *
+ * Suites call this in `afterAll`, but disconnecting would pull the connection out from under
+ * the suites that run next in the same process. The worker exits when the run finishes, which
+ * closes the socket; there is nothing to clean up by hand.
+ */
 export async function disconnectTestDatabase(): Promise<void> {
-  await mongoose.disconnect();
+  // Intentionally empty — see the note above.
 }
 
 /**

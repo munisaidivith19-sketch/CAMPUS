@@ -5,8 +5,8 @@
  * working reset link. `usedAt` enforces single use; the TTL index removes the record once it
  * has expired.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { Schema, type HydratedDocument } from 'mongoose';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface PasswordResetAttrs {
   institutionId: ObjectId;
@@ -33,7 +33,7 @@ passwordResetSchema.index({ tokenHash: 1 });
 passwordResetSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export type PasswordResetDocument = HydratedDocument<PasswordResetAttrs & Timestamps>;
-export const PasswordResetModel = model<PasswordResetAttrs & Timestamps>(
+export const PasswordResetModel = defineModel<PasswordResetAttrs & Timestamps>(
   'PasswordReset',
   passwordResetSchema,
 );

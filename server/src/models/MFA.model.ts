@@ -10,9 +10,9 @@
  * The TTL index only affects documents that actually carry `expiresAt`, so TOTP enrollments
  * (which have none) are never reaped.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { MfaType } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface MfaAttrs {
   institutionId: ObjectId;
@@ -47,4 +47,4 @@ mfaSchema.index({ institutionId: 1, userId: 1, type: 1 });
 mfaSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export type MfaDocument = HydratedDocument<MfaAttrs & Timestamps>;
-export const MfaModel = model<MfaAttrs & Timestamps>('MFA', mfaSchema);
+export const MfaModel = defineModel<MfaAttrs & Timestamps>('MFA', mfaSchema);

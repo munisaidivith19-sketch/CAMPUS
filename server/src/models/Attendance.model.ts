@@ -12,9 +12,9 @@
  * `date` is normalized to UTC midnight by the service so a period is keyed by calendar day and
  * not by the marker's clock time.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { AttendanceStatus } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface AttendanceAttrs {
   institutionId: ObjectId;
@@ -57,4 +57,4 @@ attendanceSchema.index({ institutionId: 1, studentUserId: 1, subjectId: 1, date:
 attendanceSchema.index({ institutionId: 1, classId: 1, date: 1 });
 
 export type AttendanceDocument = HydratedDocument<AttendanceAttrs & Timestamps>;
-export const AttendanceModel = model<AttendanceAttrs & Timestamps>('Attendance', attendanceSchema);
+export const AttendanceModel = defineModel<AttendanceAttrs & Timestamps>('Attendance', attendanceSchema);

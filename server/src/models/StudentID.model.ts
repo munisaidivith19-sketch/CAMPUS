@@ -5,9 +5,9 @@
  * (opaque, revocable, short-lived) which the server resolves back to this record. No PII is
  * ever encoded into the QR (SECURITY.md §10).
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { StudentIdStatus } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface StudentIDAttrs {
   institutionId: ObjectId;
@@ -45,4 +45,4 @@ studentIdSchema.index({ institutionId: 1, cardNo: 1 }, { unique: true });
 studentIdSchema.index({ institutionId: 1, studentProfileId: 1 });
 
 export type StudentIDDocument = HydratedDocument<StudentIDAttrs & Timestamps>;
-export const StudentIDModel = model<StudentIDAttrs & Timestamps>('StudentID', studentIdSchema);
+export const StudentIDModel = defineModel<StudentIDAttrs & Timestamps>('StudentID', studentIdSchema);

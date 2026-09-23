@@ -5,9 +5,9 @@
  * it, and bounded (six days × a dozen periods), which is exactly the embed case in
  * DATABASE.md's embed-vs-reference rule.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { ALL_DAYS, type DayOfWeek } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface TimetableEntry {
   day: DayOfWeek;
@@ -48,4 +48,4 @@ const timetableSchema = new Schema<TimetableAttrs & Timestamps>(
 timetableSchema.index({ institutionId: 1, batch: 1, section: 1 }, { unique: true });
 
 export type TimetableDocument = HydratedDocument<TimetableAttrs & Timestamps>;
-export const TimetableModel = model<TimetableAttrs & Timestamps>('Timetable', timetableSchema);
+export const TimetableModel = defineModel<TimetableAttrs & Timestamps>('Timetable', timetableSchema);

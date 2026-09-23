@@ -8,8 +8,8 @@
  * `usedTokenHashes` keeps the rotated-away hashes so replay of an old token is *detectable*
  * rather than merely invalid — that detection revokes the whole session.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { Schema, type HydratedDocument } from 'mongoose';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface SessionAttrs {
   institutionId: ObjectId;
@@ -53,4 +53,4 @@ sessionSchema.index({ usedTokenHashes: 1 });
 sessionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export type SessionDocument = HydratedDocument<SessionAttrs & Timestamps>;
-export const SessionModel = model<SessionAttrs & Timestamps>('Session', sessionSchema);
+export const SessionModel = defineModel<SessionAttrs & Timestamps>('Session', sessionSchema);

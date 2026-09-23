@@ -6,9 +6,9 @@
  * why no name, roll number, or any other PII is ever placed in the code (SECURITY.md §10).
  * Only the token's SHA-256 hash is stored.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { QRPurpose } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface QRTokenAttrs {
   institutionId: ObjectId;
@@ -45,4 +45,4 @@ qrTokenSchema.index({ institutionId: 1, subjectUserId: 1, purpose: 1 });
 qrTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 export type QRTokenDocument = HydratedDocument<QRTokenAttrs & Timestamps>;
-export const QRTokenModel = model<QRTokenAttrs & Timestamps>('QRToken', qrTokenSchema);
+export const QRTokenModel = defineModel<QRTokenAttrs & Timestamps>('QRToken', qrTokenSchema);

@@ -5,9 +5,9 @@
  * cannot react twice and the toggle is idempotent. The count clients display is derived from
  * the array's length.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { ContentStatus } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface CommentAttrs {
   institutionId: ObjectId;
@@ -49,4 +49,4 @@ commentSchema.index({ institutionId: 1, discussionId: 1, createdAt: 1 });
 commentSchema.index({ institutionId: 1, reportedCount: -1 });
 
 export type CommentDocument = HydratedDocument<CommentAttrs & Timestamps>;
-export const CommentModel = model<CommentAttrs & Timestamps>('Comment', commentSchema);
+export const CommentModel = defineModel<CommentAttrs & Timestamps>('Comment', commentSchema);

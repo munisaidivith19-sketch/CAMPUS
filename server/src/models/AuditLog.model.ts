@@ -6,9 +6,9 @@
  * Entries never contain passwords, OTPs, reset tokens, or session secrets — only the coarse
  * action, the actor, the target, and the outcome.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { AuditAction, AuditResult } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface AuditLogAttrs {
   institutionId: ObjectId;
@@ -58,4 +58,4 @@ for (const op of ['deleteOne', 'deleteMany', 'findOneAndDelete'] as const) {
 }
 
 export type AuditLogDocument = HydratedDocument<AuditLogAttrs & Timestamps>;
-export const AuditLogModel = model<AuditLogAttrs & Timestamps>('AuditLog', auditLogSchema);
+export const AuditLogModel = defineModel<AuditLogAttrs & Timestamps>('AuditLog', auditLogSchema);

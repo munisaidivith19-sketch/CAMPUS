@@ -1,7 +1,7 @@
 /** Permission — the catalog of `<resource>:<action>[:<scope>]` keys a role can grant. */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import type { Permission } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface PermissionAttrs {
   institutionId: ObjectId;
@@ -21,4 +21,4 @@ const permissionSchema = new Schema<PermissionAttrs & Timestamps>(
 permissionSchema.index({ institutionId: 1, key: 1 }, { unique: true });
 
 export type PermissionDocument = HydratedDocument<PermissionAttrs & Timestamps>;
-export const PermissionModel = model<PermissionAttrs & Timestamps>('Permission', permissionSchema);
+export const PermissionModel = defineModel<PermissionAttrs & Timestamps>('Permission', permissionSchema);

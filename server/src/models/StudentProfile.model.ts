@@ -5,8 +5,8 @@
  * `contact` is privacy-controlled: it is only ever returned to the owner or to a caller holding
  * a tenant-wide profile permission, never in a public/QR payload.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { Schema, type HydratedDocument } from 'mongoose';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface StudentProfileAttrs {
   institutionId: ObjectId;
@@ -57,7 +57,7 @@ studentProfileSchema.index({ institutionId: 1, userId: 1 }, { unique: true });
 studentProfileSchema.index({ institutionId: 1, departmentId: 1, batch: 1, section: 1 });
 
 export type StudentProfileDocument = HydratedDocument<StudentProfileAttrs & Timestamps>;
-export const StudentProfileModel = model<StudentProfileAttrs & Timestamps>(
+export const StudentProfileModel = defineModel<StudentProfileAttrs & Timestamps>(
   'StudentProfile',
   studentProfileSchema,
 );

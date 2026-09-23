@@ -5,8 +5,8 @@
  * `domains` is the lookup key used at registration: an institution email's domain resolves the
  * tenant, so a client never chooses (or can forge) its own tenant.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
-import type { Timestamps } from './base.js';
+import { Schema, type HydratedDocument } from 'mongoose';
+import { defineModel, type Timestamps } from './base.js';
 
 export interface InstitutionAttrs {
   name: string;
@@ -41,4 +41,4 @@ const institutionSchema = new Schema<InstitutionAttrs & Timestamps>(
 institutionSchema.index({ domains: 1 }, { unique: true });
 
 export type InstitutionDocument = HydratedDocument<InstitutionAttrs & Timestamps>;
-export const InstitutionModel = model<InstitutionAttrs & Timestamps>('Institution', institutionSchema);
+export const InstitutionModel = defineModel<InstitutionAttrs & Timestamps>('Institution', institutionSchema);

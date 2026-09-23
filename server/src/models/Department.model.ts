@@ -1,6 +1,6 @@
 /** Department — tenant-scoped organizational unit that student/faculty profiles hang off. */
-import { Schema, model, type HydratedDocument } from 'mongoose';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { Schema, type HydratedDocument } from 'mongoose';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface DepartmentAttrs {
   institutionId: ObjectId;
@@ -22,4 +22,4 @@ const departmentSchema = new Schema<DepartmentAttrs & Timestamps>(
 departmentSchema.index({ institutionId: 1, code: 1 }, { unique: true });
 
 export type DepartmentDocument = HydratedDocument<DepartmentAttrs & Timestamps>;
-export const DepartmentModel = model<DepartmentAttrs & Timestamps>('Department', departmentSchema);
+export const DepartmentModel = defineModel<DepartmentAttrs & Timestamps>('Department', departmentSchema);

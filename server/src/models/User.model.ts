@@ -6,9 +6,9 @@
  * a query has to ask for them explicitly and they cannot leak into a response by accident.
  * Plaintext passwords are never stored, logged, or accepted into this document.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { ALL_ROLES, type Role, UserStatus } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface UserAttrs {
   institutionId: ObjectId;
@@ -71,4 +71,4 @@ userSchema.index({ institutionId: 1, status: 1 });
 userSchema.index({ emailVerificationTokenHash: 1 }, { sparse: true });
 
 export type UserDocument = HydratedDocument<UserAttrs & Timestamps>;
-export const UserModel = model<UserAttrs & Timestamps>('User', userSchema);
+export const UserModel = defineModel<UserAttrs & Timestamps>('User', userSchema);

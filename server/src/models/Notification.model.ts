@@ -8,9 +8,9 @@
  * retention window (DATABASE.md: "TTL on aged read notifications"). Unread notifications have no
  * such field and are therefore never auto-deleted — a user cannot lose something they never saw.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { NotificationChannel, NotificationType } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 /** How long a read notification is kept before the TTL monitor removes it. */
 export const READ_NOTIFICATION_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -52,7 +52,7 @@ notificationSchema.index({ institutionId: 1, recipientUserId: 1, readAt: 1 });
 notificationSchema.index({ autoDeleteAt: 1 }, { expireAfterSeconds: 0 });
 
 export type NotificationDocument = HydratedDocument<NotificationAttrs & Timestamps>;
-export const NotificationModel = model<NotificationAttrs & Timestamps>(
+export const NotificationModel = defineModel<NotificationAttrs & Timestamps>(
   'Notification',
   notificationSchema,
 );

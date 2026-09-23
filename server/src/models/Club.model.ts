@@ -5,8 +5,8 @@
  * by the membership service on approval/leave, and the `ClubMembership` collection remains the
  * source of truth if the two ever disagree.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { Schema, type HydratedDocument } from 'mongoose';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface ClubAttrs {
   institutionId: ObjectId;
@@ -39,4 +39,4 @@ clubSchema.index({ institutionId: 1, interests: 1 });
 clubSchema.index({ name: 'text', description: 'text' });
 
 export type ClubDocument = HydratedDocument<ClubAttrs & Timestamps>;
-export const ClubModel = model<ClubAttrs & Timestamps>('Club', clubSchema);
+export const ClubModel = defineModel<ClubAttrs & Timestamps>('Club', clubSchema);

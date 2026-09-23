@@ -5,9 +5,9 @@
  * Stores the outcome and a coarse reason only: never the attempted password, the OTP, or any
  * token (SECURITY.md §8).
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { LoginFailureReason, LoginResult } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface LoginHistoryAttrs {
   institutionId: ObjectId;
@@ -37,7 +37,7 @@ const loginHistorySchema = new Schema<LoginHistoryAttrs & Timestamps>(
 loginHistorySchema.index({ institutionId: 1, userId: 1, at: -1 });
 
 export type LoginHistoryDocument = HydratedDocument<LoginHistoryAttrs & Timestamps>;
-export const LoginHistoryModel = model<LoginHistoryAttrs & Timestamps>(
+export const LoginHistoryModel = defineModel<LoginHistoryAttrs & Timestamps>(
   'LoginHistory',
   loginHistorySchema,
 );

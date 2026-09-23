@@ -6,9 +6,9 @@
  * capacity check itself is done with an atomic conditional update in the service, so two
  * simultaneous registrations cannot both take the last seat.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { EventStatus } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface EventAttrs {
   institutionId: ObjectId;
@@ -60,4 +60,4 @@ eventSchema.index({ institutionId: 1, clubId: 1 });
 eventSchema.index({ title: 'text', description: 'text' });
 
 export type EventDocument = HydratedDocument<EventAttrs & Timestamps>;
-export const EventModel = model<EventAttrs & Timestamps>('Event', eventSchema);
+export const EventModel = defineModel<EventAttrs & Timestamps>('Event', eventSchema);

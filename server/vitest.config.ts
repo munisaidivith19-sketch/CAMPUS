@@ -16,7 +16,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     /**
-     * One worker, reused for every file.
+     * One forked process, reused for every file.
      *
      * Suites already run sequentially (`fileParallelism: false`) because they share one test
      * database, so a worker per file bought nothing — and churning workers was costing us runs:
@@ -24,10 +24,13 @@ export default defineConfig({
      * out of the run while vitest still printed a green summary with a smaller total. A pass
      * that quietly covered less than it claims is worse than a failure.
      *
-     * `dangerouslyIgnoreUnhandledErrors: false` is belt-and-braces: if a worker ever does die,
-     * the run fails loudly instead of under-reporting.
+     * The pool is named explicitly because vitest 2 defaults to `forks`, so configuring
+     * `poolOptions.threads` silently does nothing — a mistake we made once already and only
+     * caught because the test-count floor failed the build.
      */
-    poolOptions: { threads: { singleThread: true } },
+    pool: 'forks',
+    poolOptions: { forks: { singleFork: true } },
+    /** If a worker ever does die, fail loudly rather than under-report. */
     dangerouslyIgnoreUnhandledErrors: false,
     // The cross-cutting security suites live at the repo root (docs/deployment/TESTING.md).
     include: ['tests/**/*.test.ts', '../tests/security/**/*.test.ts'],

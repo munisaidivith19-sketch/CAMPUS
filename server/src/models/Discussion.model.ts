@@ -5,9 +5,9 @@
  * destroy the evidence an investigation or appeal would need, and the audit entry that records
  * the removal has to point at something that still exists.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { ContentStatus } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface DiscussionAttrs {
   institutionId: ObjectId;
@@ -55,4 +55,4 @@ discussionSchema.index({ institutionId: 1, reportedCount: -1 });
 discussionSchema.index({ title: 'text', body: 'text' });
 
 export type DiscussionDocument = HydratedDocument<DiscussionAttrs & Timestamps>;
-export const DiscussionModel = model<DiscussionAttrs & Timestamps>('Discussion', discussionSchema);
+export const DiscussionModel = defineModel<DiscussionAttrs & Timestamps>('Discussion', discussionSchema);

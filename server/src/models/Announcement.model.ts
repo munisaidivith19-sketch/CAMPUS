@@ -10,9 +10,9 @@
  * far cheaper than a row per (announcement, reader); if an institution ever outgrows it, the
  * read state moves to its own collection without changing the API.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { AnnouncementPriority, AnnouncementScope, ALL_ROLES } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface AnnouncementTarget {
   scope: AnnouncementScope;
@@ -73,7 +73,7 @@ announcementSchema.index({ institutionId: 1, 'target.scope': 1, publishAt: -1 })
 announcementSchema.index({ title: 'text', body: 'text' });
 
 export type AnnouncementDocument = HydratedDocument<AnnouncementAttrs & Timestamps>;
-export const AnnouncementModel = model<AnnouncementAttrs & Timestamps>(
+export const AnnouncementModel = defineModel<AnnouncementAttrs & Timestamps>(
   'Announcement',
   announcementSchema,
 );

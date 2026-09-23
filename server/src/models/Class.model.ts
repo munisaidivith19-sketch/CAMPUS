@@ -7,8 +7,8 @@
  * triple. One source of truth for "who is in this section" means a transfer cannot leave a
  * student enrolled in a class they no longer attend.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { Schema, type HydratedDocument } from 'mongoose';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface ClassAttrs {
   institutionId: ObjectId;
@@ -39,4 +39,4 @@ classSchema.index({ institutionId: 1, facultyUserId: 1 });
 classSchema.index({ institutionId: 1, departmentId: 1, batch: 1, section: 1 });
 
 export type ClassDocument = HydratedDocument<ClassAttrs & Timestamps>;
-export const ClassModel = model<ClassAttrs & Timestamps>('Class', classSchema);
+export const ClassModel = defineModel<ClassAttrs & Timestamps>('Class', classSchema);

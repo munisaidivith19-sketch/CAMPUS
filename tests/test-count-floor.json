@@ -1,0 +1,4 @@
+{
+  "_comment": "Minimum number of tests the suite must report. Raise this when you add tests; never lower it without saying why in the commit message. A run that reports fewer than this FAILS, even if every test it did run passed — see scripts/check-test-floor.mjs for why.",
+  "floor": 320
+}

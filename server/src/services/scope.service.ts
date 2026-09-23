@@ -62,6 +62,8 @@ export async function resolveAcademicScope(principal: Principal): Promise<Academ
   if (roles.includes(Role.CLASS_MENTOR)) {
     const profile = await facultyProfileRepository.findByUserId(institutionId, userId);
     // A mentor with no assigned section resolves to nothing extra — fail closed, not open.
+    // `mentorOf` is singular by invariant (see FacultyProfile.model.ts); the scope it produces
+    // is still an array because a mentor who also teaches reaches other sections' classes.
     if (profile?.mentorOf) {
       scope = mergeScopes(
         scope,

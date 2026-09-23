@@ -6,9 +6,9 @@
  * `isSystem` marks the 14 platform roles that ship seeded; they may be re-granted but are not
  * meant to be deleted by an institution.
  */
-import { Schema, model, type HydratedDocument } from 'mongoose';
+import { Schema, type HydratedDocument } from 'mongoose';
 import { ALL_ROLES, type Permission, type Role } from '@campusconnect/types';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface RoleAttrs {
   institutionId: ObjectId;
@@ -34,4 +34,4 @@ const roleSchema = new Schema<RoleAttrs & Timestamps>(
 roleSchema.index({ institutionId: 1, key: 1 }, { unique: true });
 
 export type RoleDocument = HydratedDocument<RoleAttrs & Timestamps>;
-export const RoleModel = model<RoleAttrs & Timestamps>('Role', roleSchema);
+export const RoleModel = defineModel<RoleAttrs & Timestamps>('Role', roleSchema);

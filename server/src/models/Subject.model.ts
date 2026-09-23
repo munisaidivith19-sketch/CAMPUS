@@ -1,6 +1,6 @@
 /** Subject — a course in the curriculum, owned by a department. */
-import { Schema, model, type HydratedDocument } from 'mongoose';
-import { tenantKey, type ObjectId, type Timestamps } from './base.js';
+import { Schema, type HydratedDocument } from 'mongoose';
+import { defineModel, tenantKey, type ObjectId, type Timestamps } from './base.js';
 
 export interface SubjectAttrs {
   institutionId: ObjectId;
@@ -25,4 +25,4 @@ subjectSchema.index({ institutionId: 1, code: 1 }, { unique: true });
 subjectSchema.index({ institutionId: 1, departmentId: 1 });
 
 export type SubjectDocument = HydratedDocument<SubjectAttrs & Timestamps>;
-export const SubjectModel = model<SubjectAttrs & Timestamps>('Subject', subjectSchema);
+export const SubjectModel = defineModel<SubjectAttrs & Timestamps>('Subject', subjectSchema);

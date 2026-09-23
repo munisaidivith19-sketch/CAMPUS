@@ -33,9 +33,34 @@ export const PERMISSION_DESCRIPTIONS: Readonly<Record<Permission, string>> = {
   [Permission.STUDENT_ID_READ]: 'View student ID cards issued in your institution.',
   [Permission.QR_VERIFY]: 'Scan and verify a student ID code.',
 
-  [Permission.ATTENDANCE_READ_SELF]: 'View your own attendance record. (Phase 3)',
-  [Permission.ATTENDANCE_MARK]: 'Mark attendance for a class you teach. (Phase 3)',
-  [Permission.ANNOUNCEMENT_CREATE]: 'Publish announcements. (Phase 3)',
+  [Permission.SUBJECT_READ]: 'Browse the subject catalog.',
+  [Permission.CLASS_READ]: 'View classes and their rosters within your scope.',
+  [Permission.CLASS_MANAGE]: 'Create classes and assign teaching faculty.',
+  [Permission.TIMETABLE_READ]: 'View timetables within your scope.',
+  [Permission.ATTENDANCE_READ_SELF]: 'View your own attendance record.',
+  [Permission.ATTENDANCE_MARK]: 'Mark attendance for a class you teach.',
+  [Permission.ATTENDANCE_READ_SCOPE]:
+    'View attendance beyond your own — limited to your classes, section, department or college.',
+  [Permission.ATTENDANCE_CORRECTION_REQUEST]: 'Ask for one of your own attendance records to be corrected.',
+  [Permission.ATTENDANCE_CORRECTION_REVIEW]: 'Approve or reject attendance correction requests.',
+
+  [Permission.ANNOUNCEMENT_READ]: 'Read announcements addressed to you.',
+  [Permission.ANNOUNCEMENT_CREATE]: 'Publish announcements to a scope you are authorized for.',
+  [Permission.CLUB_READ]: 'Browse clubs and their profiles.',
+  [Permission.CLUB_JOIN]: 'Request to join a club.',
+  [Permission.CLUB_MANAGE]: 'Administer a club: approve members, publish its events.',
+  [Permission.EVENT_READ]: 'Browse campus events.',
+  [Permission.EVENT_CREATE]: 'Create events for a club or department you are authorized for.',
+  [Permission.EVENT_REGISTER]: 'Register yourself for an event.',
+  [Permission.EVENT_CHECKIN]: 'Scan and check attendees in at an event.',
+  [Permission.DISCUSSION_READ]: 'Read discussion threads.',
+  [Permission.DISCUSSION_CREATE]: 'Start a discussion thread.',
+  [Permission.COMMENT_CREATE]: 'Comment on discussions.',
+  [Permission.REPORT_CREATE]: 'Report content for moderator review.',
+  [Permission.MODERATION_REVIEW]: 'Review reported content and remove it. Highly privileged.',
+  [Permission.NOTIFICATION_READ_SELF]: 'Read your own notifications.',
+  [Permission.SEARCH_QUERY]: 'Search across announcements, discussions, events and clubs.',
+
   [Permission.GATEPASS_APPROVE]: 'Approve student gate passes. (Phase 4)',
 };
 

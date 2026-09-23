@@ -42,6 +42,13 @@ class DepartmentRepository extends TenantRepository<DepartmentEntity> {
     return this.findOneScoped(institutionId, { code: code.toUpperCase() });
   }
 
+  /** The departments this user heads — the source of an HOD's academic scope. */
+  async listHeadedBy(institutionId: IdLike, hodUserId: IdLike): Promise<DepartmentDocument[]> {
+    const hod = toObjectId(hodUserId);
+    if (!hod) return [];
+    return DepartmentModel.find(this.scoped(institutionId, { hodUserId: hod })).exec();
+  }
+
   async findById(institutionId: IdLike, id: IdLike): Promise<DepartmentDocument | null> {
     return this.findByIdScoped(institutionId, id);
   }

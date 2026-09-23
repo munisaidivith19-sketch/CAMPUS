@@ -18,6 +18,13 @@ export interface StudentProfileAttrs {
   section?: string | null;
   photoRef?: string | null;
   contact?: { phone?: string | null; guardianPhone?: string | null; address?: string | null };
+  /**
+   * Self-declared interests, used by the RULE-BASED club and event discovery in Phase 3.
+   * Matching is a plain set intersection against `Club.interests` / `Event.category` — there is
+   * no model or scoring involved. AI-assisted recommendations are Phase 5 and would be labelled
+   * as such rather than quietly replacing this.
+   */
+  interests: string[];
 }
 
 const studentProfileSchema = new Schema<StudentProfileAttrs & Timestamps>(
@@ -35,12 +42,19 @@ const studentProfileSchema = new Schema<StudentProfileAttrs & Timestamps>(
       guardianPhone: { type: String, default: null, maxlength: 20 },
       address: { type: String, default: null, maxlength: 300 },
     },
+    interests: {
+      type: [{ type: String, lowercase: true, trim: true, maxlength: 40 }],
+      required: true,
+      default: [],
+    },
   },
   { timestamps: true },
 );
 
 studentProfileSchema.index({ institutionId: 1, rollNo: 1 }, { unique: true });
 studentProfileSchema.index({ institutionId: 1, userId: 1 }, { unique: true });
+// The section roster lookup that drives class rosters and mentor/HOD scope.
+studentProfileSchema.index({ institutionId: 1, departmentId: 1, batch: 1, section: 1 });
 
 export type StudentProfileDocument = HydratedDocument<StudentProfileAttrs & Timestamps>;
 export const StudentProfileModel = model<StudentProfileAttrs & Timestamps>(

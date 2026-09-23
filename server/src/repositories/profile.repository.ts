@@ -30,6 +30,58 @@ class StudentProfileRepository extends TenantRepository<StudentProfileEntity> {
     return this.findOneScoped(institutionId, { rollNo: rollNo.toUpperCase() });
   }
 
+  /**
+   * The roster for a section — the structural answer to "who is in this class".
+   *
+   * `departmentId` is optional because a section is already unique within a batch in practice;
+   * passing it narrows further when an institution reuses section letters across departments.
+   */
+  async listBySection(
+    institutionId: IdLike,
+    batch: string,
+    section: string,
+    departmentId?: IdLike | null,
+  ): Promise<StudentProfileDocument[]> {
+    const filter: Record<string, unknown> = { batch, section: section.toUpperCase() };
+    if (departmentId) {
+      const department = toObjectId(departmentId);
+      if (department) filter.departmentId = department;
+    }
+    return StudentProfileModel.find(this.scoped(institutionId, filter)).sort({ rollNo: 1 }).exec();
+  }
+
+  async listByDepartment(institutionId: IdLike, departmentId: IdLike): Promise<StudentProfileDocument[]> {
+    const department = toObjectId(departmentId);
+    if (!department) return [];
+    return StudentProfileModel.find(this.scoped(institutionId, { departmentId: department }))
+      .sort({ rollNo: 1 })
+      .exec();
+  }
+
+  async listAll(institutionId: IdLike): Promise<StudentProfileDocument[]> {
+    return StudentProfileModel.find(this.scoped(institutionId)).sort({ rollNo: 1 }).exec();
+  }
+
+  async findManyByUserIds(institutionId: IdLike, userIds: IdLike[]): Promise<StudentProfileDocument[]> {
+    const ids = userIds
+      .map((id) => toObjectId(id))
+      .filter((id): id is NonNullable<ReturnType<typeof toObjectId>> => id !== null);
+    if (ids.length === 0) return [];
+    return StudentProfileModel.find(this.scoped(institutionId, { userId: { $in: ids } })).exec();
+  }
+
+  async setInterests(
+    institutionId: IdLike,
+    userId: IdLike,
+    interests: string[],
+  ): Promise<StudentProfileDocument | null> {
+    return StudentProfileModel.findOneAndUpdate(
+      { institutionId: requireObjectId(institutionId), userId: requireObjectId(userId) },
+      { $set: { interests: interests.map((i) => i.toLowerCase()) } },
+      { new: true },
+    ).exec();
+  }
+
   async create(data: {
     institutionId: IdLike;
     userId: IdLike;
@@ -78,6 +130,23 @@ class FacultyProfileRepository extends TenantRepository<FacultyProfileEntity> {
     const user = toObjectId(userId);
     if (!user) return null;
     return this.findOneScoped(institutionId, { userId: user });
+  }
+
+  /** Assign the section a CLASS_MENTOR is responsible for (used by the seed and admin tooling). */
+  async setMentorSection(
+    institutionId: IdLike,
+    userId: IdLike,
+    mentorOf: { batch: string; section: string } | null,
+  ): Promise<FacultyProfileDocument | null> {
+    return FacultyProfileModel.findOneAndUpdate(
+      { institutionId: requireObjectId(institutionId), userId: requireObjectId(userId) },
+      {
+        $set: {
+          mentorOf: mentorOf ? { batch: mentorOf.batch, section: mentorOf.section.toUpperCase() } : null,
+        },
+      },
+      { new: true },
+    ).exec();
   }
 
   async create(data: {

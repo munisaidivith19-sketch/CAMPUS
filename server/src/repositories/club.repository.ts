@@ -69,6 +69,13 @@ class ClubRepository extends TenantRepository<ClubEntity> {
     });
   }
 
+  /** Clubs this user administers — the reach of their club-scoped moderation powers. */
+  async listAdministeredBy(institutionId: IdLike, userId: IdLike): Promise<ClubDocument[]> {
+    const user = toObjectId(userId);
+    if (!user) return [];
+    return ClubModel.find(this.scoped(institutionId, { adminUserIds: user })).exec();
+  }
+
   async adjustMemberCount(institutionId: IdLike, clubId: IdLike, delta: number): Promise<void> {
     await this.updateOneScoped(
       institutionId,

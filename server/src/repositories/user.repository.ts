@@ -6,7 +6,7 @@
  * `*WithSecrets` methods. Queries are built from allowlisted fields only — no user-supplied
  * object is ever spread into a filter.
  */
-import type { Role, UserStatus } from '@campusconnect/types';
+import { UserStatus, type Role } from '@campusconnect/types';
 import type { FilterQuery } from 'mongoose';
 import { UserModel, type UserAttrs, type UserDocument } from '../models/User.model.js';
 import type { Timestamps } from '../models/base.js';
@@ -86,6 +86,31 @@ class UserRepository extends TenantRepository<UserEntity> {
     if (filters.role) filter.roles = filters.role;
     if (filters.status) filter.status = filters.status;
     return this.pageScoped(institutionId, filter, page, { createdAt: -1 });
+  }
+
+  /**
+   * Find active users by name, for the chat user picker.
+   *
+   * A search, never a listing: the caller must supply a term, the result is capped by the
+   * caller's schema, and the term is escaped before it reaches a regex so a student cannot pass
+   * `.*` and receive the whole institution.
+   */
+  async searchActiveByName(
+    institutionId: IdLike,
+    term: string,
+    limit: number,
+  ): Promise<UserDocument[]> {
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return UserModel.find(
+      this.scoped(institutionId, {
+        deletedAt: null,
+        status: UserStatus.ACTIVE,
+        fullName: { $regex: escaped, $options: 'i' },
+      } as FilterQuery<UserEntity>),
+    )
+      .sort({ fullName: 1 })
+      .limit(Math.min(limit, 20))
+      .exec();
   }
 
   async markEmailVerified(institutionId: IdLike, userId: IdLike, status: UserStatus): Promise<void> {

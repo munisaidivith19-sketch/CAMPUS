@@ -11,6 +11,7 @@ import { adminRouter } from './admin.routes.js';
 import { qrRouter } from './qr.routes.js';
 import { academicsRouter } from './academics.routes.js';
 import { communityRouter } from './community.routes.js';
+import { chatRouter } from './chat.routes.js';
 
 export const v1Router = Router();
 
@@ -36,11 +37,13 @@ v1Router.get('/meta', (_req, res) => {
       discussions: true,
       notifications: true,
       search: true,
-      // Part B and later.
-      chat: false,
+      // Part B and C-1.
+      pushDelivery: true,
+      // Part C-2. Chat is NOT end-to-end encrypted; see docs/security/SECURITY.md.
+      chat: true,
+      realtime: true,
+      // Part C-3.
       fileSharing: false,
-      realtime: false,
-      pushDelivery: false,
     },
   });
 });
@@ -54,6 +57,9 @@ v1Router.use('/qr', qrRouter);
 // --- Phase 3 Part A: Academics & Community -----------------------------------
 v1Router.use('/', academicsRouter);
 v1Router.use('/', communityRouter);
+
+// --- Phase 3 Part C-2: Chat ---------------------------------------------------
+v1Router.use('/', chatRouter);
 
 // --- Feature routers (mounted in later phases) -------------------------------
 // Part B adds chat + files + realtime; see docs/api/API.md for the full planned map.

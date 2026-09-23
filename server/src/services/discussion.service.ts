@@ -25,6 +25,7 @@ import { commentRepository, discussionRepository } from '../repositories/discuss
 import { userRepository } from '../repositories/user.repository.js';
 import type { PageRequest } from '../repositories/base.repository.js';
 import { Errors } from '../utils/errors.js';
+import { assertReportableMessage } from './chat.service.js';
 import { recordAudit, type AuditContext } from './audit.service.js';
 import type { DiscussionDocument } from '../models/Discussion.model.js';
 import type { CommentDocument } from '../models/Comment.model.js';
@@ -205,7 +206,12 @@ export async function reportContent(
 ): Promise<{ status: 'REPORTED' }> {
   const { institutionId } = principal;
 
-  if (input.targetType === 'DISCUSSION') {
+  if (input.targetType === 'CHAT_MESSAGE') {
+    // Reportable only from inside the chat: the membership check is what stops this endpoint
+    // from becoming an oracle for "does this message id exist?". The moderation-queue UI for
+    // chat reports is deferred; the audit entry below is the record for now.
+    await assertReportableMessage(principal, input.targetId);
+  } else if (input.targetType === 'DISCUSSION') {
     const discussion = await discussionRepository.findVisibleById(institutionId, input.targetId);
     if (!discussion) throw Errors.notFound();
     await discussionRepository.incrementReportCount(institutionId, input.targetId);

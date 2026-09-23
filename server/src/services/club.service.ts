@@ -24,6 +24,7 @@ import { studentProfileRepository } from '../repositories/profile.repository.js'
 import { userRepository } from '../repositories/user.repository.js';
 import type { PageRequest } from '../repositories/base.repository.js';
 import { Errors } from '../utils/errors.js';
+import { syncClubChatMembership } from './chat.service.js';
 import { recordAudit, type AuditContext } from './audit.service.js';
 import { notifyUsers } from './notification.service.js';
 import type { ClubDocument } from '../models/Club.model.js';
@@ -284,6 +285,10 @@ export async function decideMembership(
   if (input.decision === ClubMembershipStatus.APPROVED) {
     await clubRepository.adjustMemberCount(institutionId, String(club._id), 1);
   }
+
+  // The club chat's membership is derived from this decision, so it is re-synced here rather
+  // than waiting for someone to open the chat: approval grants access, rejection revokes it.
+  await syncClubChatMembership(institutionId, String(club._id));
 
   await recordAudit({
     institutionId,

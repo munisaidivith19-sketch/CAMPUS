@@ -28,9 +28,11 @@
  * regardless: Argon2id verification, the per-challenge OTP attempt cap, per-user reset
  * throttling in the auth service, generic (non-enumerating) responses, and MFA.
  */
+import type { Request } from 'express';
 import { MemoryStore, rateLimit, type RateLimitRequestHandler, type Store } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import type { ClientRateLimitInfo, IncrementResponse, Options } from 'express-rate-limit';
+import { config } from '../config/env.js';
 import { getRedisClient } from '../infra/redis.js';
 import { Errors } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
@@ -159,7 +161,12 @@ function makePrimaryStore(name: string): Store | null {
   return store;
 }
 
-function makeLimiter(name: string, windowMs: number, limit: number): RateLimitRequestHandler {
+function makeLimiter(
+  name: string,
+  windowMs: number,
+  limit: number,
+  keyGenerator?: (req: Request) => string,
+): RateLimitRequestHandler {
   const store = new ResilientStore(makePrimaryStore(name));
   stores.push(store);
   return rateLimit({
@@ -168,6 +175,7 @@ function makeLimiter(name: string, windowMs: number, limit: number): RateLimitRe
     store,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
+    ...(keyGenerator ? { keyGenerator } : {}),
     // Route the rejection through the normal error pipeline so the envelope stays consistent.
     handler: (_req, _res, next) => next(Errors.rateLimited()),
   });
@@ -195,6 +203,21 @@ export const otpLimiter = makeLimiter('otp', 15 * MINUTES, 10);
 
 /** Reset redemption attempts. */
 export const resetPasswordLimiter = makeLimiter('reset', 60 * MINUTES, 10);
+
+/**
+ * Chat sending, counted **per user** rather than per IP.
+ *
+ * An IP limit is the wrong shape here: a lecture hall shares one NAT address, so it would
+ * throttle a class for one person's behaviour, while a determined spammer just changes network.
+ * The key is the authenticated user id — this limiter only ever sits behind `authenticate`, and
+ * the IP fallback exists solely so the limiter is still defined if that order ever changes.
+ */
+export const chatSendLimiter = makeLimiter(
+  'chat-send',
+  1 * MINUTES,
+  config.CHAT_SEND_RATE_PER_MINUTE,
+  (req: Request) => req.principal?.userId ?? `ip:${req.ip ?? 'unknown'}`,
+);
 
 /**
  * Clear every counter. Used by the test suite so one suite's login attempts cannot exhaust the

@@ -21,6 +21,7 @@ import {
 import { userRepository } from '../repositories/user.repository.js';
 import type { PageRequest } from '../repositories/base.repository.js';
 import { Errors } from '../utils/errors.js';
+import { syncClassChatMembership } from './chat.service.js';
 import { resolveAcademicScope, resolveVisibleClassIds } from './scope.service.js';
 import type { ClassDocument } from '../models/Class.model.js';
 
@@ -246,6 +247,10 @@ export async function assignClassFaculty(
 
   const updated = await classRepository.assignFaculty(institutionId, classId, facultyUserId);
   if (!updated) throw Errors.notFound();
+
+  // The class chat follows the roster: the new faculty member joins it, the previous one — who
+  // is no longer on the roster this derives from — loses access on their next request.
+  await syncClassChatMembership(institutionId, classId);
 
   const [dto] = await toClassDTOs(institutionId, [updated]);
   if (!dto) throw Errors.internal();

@@ -6,9 +6,10 @@
  *  1. **The in-app row is the source of truth.** Delivery is an additional channel. Nothing in
  *     this file can delete, alter or suppress a notification; a total provider outage leaves
  *     every notification intact and visible in the app.
- *  2. **Never block the request path.** `enqueueDelivery` returns synchronously after pushing
- *     ids onto an in-process queue; the work happens on a later tick. A provider that takes ten
- *     seconds delays nothing the user is waiting on.
+ *  2. **Never block the request path.** `enqueueDelivery` returns synchronously; the work is
+ *     queued and happens on a later tick. A provider that takes ten seconds delays nothing the
+ *     user is waiting on, and a queue that is unreachable degrades (deliveryQueue.ts) rather
+ *     than propagating back into the write.
  *  3. **Never lose a failure.** Attempts are retried with exponential backoff and the outcome —
  *     including exhaustion — is written onto the notification's `deliveries` array. A failed
  *     delivery is queryable afterwards rather than existing only in a log line.
@@ -18,12 +19,10 @@
  *  5. **Tenant isolation.** Every read is tenant-scoped by the notification's own
  *     `institutionId`, and the recipient is resolved through the tenant-scoped user repository.
  *     A recipient who is not in that institution resolves to nothing and is skipped.
- *
- * SCOPE NOTE: the queue is in-process. That is correct for a single API instance and matches
- * the documented dev degradation in docs/architecture/03-backend-architecture.md ("jobs fall
- * back to inline execution"). A multi-instance deployment needs the Redis-backed durable queue
- * described there; until then a process restart drops queued-but-unsent work, while the in-app
- * notifications it would have delivered remain intact.
+ *  6. **At most one send per channel.** The queue guarantees a task is claimed by one worker at
+ *     a time, but a worker that dies mid-drain releases its task for someone else. The claim
+ *     below makes that safe: a channel is claimed in the database before the first attempt, so a
+ *     reclaimed task can tell "nobody has tried this" from "someone already did".
  */
 import { DeliveryStatus, NotificationChannel } from '@campusconnect/types';
 import { config } from '../config/env.js';
@@ -34,14 +33,14 @@ import { requireObjectId, type IdLike } from '../repositories/base.repository.js
 import { logger } from '../utils/logger.js';
 import { sendNotificationEmail } from './email.service.js';
 import { sendPush } from './push.service.js';
-
-interface DeliveryTask {
-  institutionId: string;
-  notificationId: string;
-}
-
-const queue: DeliveryTask[] = [];
-let draining: Promise<void> | null = null;
+import {
+  ackTask,
+  claimTask,
+  pushTask,
+  queueBackendName,
+  queueSize,
+  resetDeliveryQueue,
+} from './deliveryQueue.js';
 
 /** Exponential backoff: base, base×2, base×4 … */
 function backoffFor(attempt: number): number {
@@ -50,8 +49,50 @@ function backoffFor(attempt: number): number {
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Record an attempt outcome on the notification. Never throws into the caller. */
-async function recordOutcome(
+/**
+ * How long a PENDING channel record may sit before a later worker calls it interrupted.
+ *
+ * Comfortably longer than a full retry cycle: the only way to still be PENDING after this is
+ * that the worker holding it died.
+ */
+const INTERRUPTED_AFTER_MS = 5 * 60_000;
+
+/**
+ * Claim a channel for this worker by writing a PENDING record.
+ *
+ * The `$ne` filter is the whole guard: the update matches only when no record for that channel
+ * exists, and MongoDB applies it atomically, so exactly one worker can claim a channel. Losing
+ * the race means somebody already sent (or is sending) — the correct action is to do nothing.
+ */
+async function claimChannel(
+  institutionId: string,
+  notificationId: string,
+  channel: NotificationChannel,
+): Promise<boolean> {
+  const result = await NotificationModel.updateOne(
+    {
+      _id: requireObjectId(notificationId),
+      institutionId: requireObjectId(institutionId),
+      'deliveries.channel': { $ne: channel },
+    },
+    {
+      $push: {
+        deliveries: {
+          channel,
+          status: DeliveryStatus.PENDING,
+          attempts: 0,
+          lastAttemptAt: new Date(),
+          failureReason: null,
+        },
+      },
+    },
+  ).exec();
+
+  return result.modifiedCount === 1;
+}
+
+/** Write the final outcome onto the record claimed above. Never throws into the caller. */
+async function finaliseChannel(
   institutionId: string,
   notificationId: string,
   channel: NotificationChannel,
@@ -61,16 +102,17 @@ async function recordOutcome(
 ): Promise<void> {
   try {
     await NotificationModel.updateOne(
-      { _id: requireObjectId(notificationId), institutionId: requireObjectId(institutionId) },
       {
-        $push: {
-          deliveries: {
-            channel,
-            status,
-            attempts,
-            lastAttemptAt: new Date(),
-            failureReason: failureReason ? failureReason.slice(0, 300) : null,
-          },
+        _id: requireObjectId(notificationId),
+        institutionId: requireObjectId(institutionId),
+        'deliveries.channel': channel,
+      },
+      {
+        $set: {
+          'deliveries.$.status': status,
+          'deliveries.$.attempts': attempts,
+          'deliveries.$.lastAttemptAt': new Date(),
+          'deliveries.$.failureReason': failureReason ? failureReason.slice(0, 300) : null,
         },
       },
     ).exec();
@@ -107,7 +149,7 @@ async function deliverWithRetry(
     }
 
     if (outcome.status === DeliveryStatus.SENT || outcome.status === DeliveryStatus.SKIPPED) {
-      await recordOutcome(
+      await finaliseChannel(
         institutionId,
         notificationId,
         channel,
@@ -124,7 +166,7 @@ async function deliverWithRetry(
 
   // Retries exhausted. Recorded, not dropped — and the in-app notification still stands.
   logger.warn({ notificationId, channel, reason: lastReason }, 'Notification delivery failed');
-  await recordOutcome(
+  await finaliseChannel(
     institutionId,
     notificationId,
     channel,
@@ -134,7 +176,50 @@ async function deliverWithRetry(
   );
 }
 
-async function processTask(task: DeliveryTask): Promise<void> {
+/**
+ * Run one channel end to end: claim it, or decide what a pre-existing record means.
+ *
+ * A record left PENDING by a worker that died is finalised as FAILED rather than retried. That
+ * is the deliberate trade: we cannot know whether the provider had already accepted the message,
+ * and for email a duplicate is worse than a miss. The failure is recorded and visible, never
+ * silent, and the in-app notification is unaffected either way.
+ */
+async function runChannel(
+  institutionId: string,
+  notificationId: string,
+  channel: NotificationChannel,
+  attempt: () => Promise<{ status: DeliveryStatus; reason?: string }>,
+): Promise<void> {
+  if (await claimChannel(institutionId, notificationId, channel)) {
+    await deliverWithRetry(institutionId, notificationId, channel, attempt);
+    return;
+  }
+
+  const existing = await NotificationModel.findOne(
+    { _id: requireObjectId(notificationId), institutionId: requireObjectId(institutionId) },
+    { deliveries: 1 },
+  )
+    .lean()
+    .exec();
+
+  const record = existing?.deliveries.find((delivery) => delivery.channel === channel);
+  if (!record || record.status !== DeliveryStatus.PENDING) return;
+
+  const age = Date.now() - (record.lastAttemptAt?.getTime() ?? 0);
+  if (age < INTERRUPTED_AFTER_MS) return; // Another worker is on it right now.
+
+  logger.warn({ notificationId, channel }, 'Delivery was interrupted before its outcome was known');
+  await finaliseChannel(
+    institutionId,
+    notificationId,
+    channel,
+    DeliveryStatus.FAILED,
+    record.attempts,
+    'interrupted before the outcome was known; not retried to avoid a duplicate send',
+  );
+}
+
+async function processTask(task: { institutionId: string; notificationId: string }): Promise<void> {
   const { institutionId, notificationId } = task;
 
   // Tenant-scoped read: a notification from another institution is simply not found here.
@@ -145,14 +230,16 @@ async function processTask(task: DeliveryTask): Promise<void> {
   // institution cannot be reached even if an id somehow pointed at one.
   const recipient = await userRepository.findById(institutionId, notification.recipientUserId);
   if (!recipient) {
-    await recordOutcome(
-      institutionId,
-      notificationId,
-      NotificationChannel.EMAIL,
-      DeliveryStatus.SKIPPED,
-      1,
-      'recipient not found in this institution',
-    );
+    if (await claimChannel(institutionId, notificationId, NotificationChannel.EMAIL)) {
+      await finaliseChannel(
+        institutionId,
+        notificationId,
+        NotificationChannel.EMAIL,
+        DeliveryStatus.SKIPPED,
+        1,
+        'recipient not found in this institution',
+      );
+    }
     return;
   }
 
@@ -162,12 +249,12 @@ async function processTask(task: DeliveryTask): Promise<void> {
     link: notification.link ?? null,
   };
 
-  await deliverWithRetry(institutionId, notificationId, NotificationChannel.EMAIL, async () => {
+  await runChannel(institutionId, notificationId, NotificationChannel.EMAIL, async () => {
     await sendNotificationEmail(recipient.email, recipient.fullName, payload);
     return { status: DeliveryStatus.SENT };
   });
 
-  await deliverWithRetry(institutionId, notificationId, NotificationChannel.PUSH, async () => {
+  await runChannel(institutionId, notificationId, NotificationChannel.PUSH, async () => {
     const result = await sendPush({
       tokens: [...recipient.pushTokens],
       title: payload.title,
@@ -178,33 +265,40 @@ async function processTask(task: DeliveryTask): Promise<void> {
   });
 }
 
+let draining: Promise<void> | null = null;
+let pollTimer: NodeJS.Timeout | null = null;
+/**
+ * Enqueues are serialised through one chain so `flushDeliveries` has something to await: the
+ * request path does not wait for the queue write, but a test must not race ahead of it.
+ */
+let enqueueChain: Promise<void> = Promise.resolve();
+
+/** Claim and process until the queue hands back nothing. */
 async function drain(): Promise<void> {
-  while (queue.length > 0) {
-    const task = queue.shift();
-    if (!task) break;
+  for (;;) {
+    let claimed;
     try {
-      await processTask(task);
+      claimed = await claimTask();
     } catch (err) {
-      // A single bad task must not stall the queue behind it.
-      logger.error({ err, notificationId: task.notificationId }, 'Delivery task threw');
+      logger.error({ err }, 'Could not claim a delivery task');
+      break;
     }
+    if (!claimed) break;
+
+    try {
+      await processTask(claimed.task);
+    } catch (err) {
+      // A single bad task must not stall the queue behind it. It is acked below either way:
+      // the outcome records on the notification are what carry the failure forward.
+      logger.error({ err, notificationId: claimed.task.notificationId }, 'Delivery task threw');
+    }
+    await ackTask(claimed.receipt);
   }
   draining = null;
 }
 
-/**
- * Queue notifications for out-of-band delivery.
- *
- * Returns immediately — this is called from the request path and must never await a provider.
- */
-export function enqueueDelivery(institutionId: IdLike, notificationIds: readonly string[]): void {
-  if (!config.NOTIFICATION_DELIVERY_ENABLED || notificationIds.length === 0) return;
-
-  for (const notificationId of notificationIds) {
-    queue.push({ institutionId: String(institutionId), notificationId });
-  }
-
-  // Start draining on a later tick so the caller's response is not held up by the first attempt.
+/** Start a drain on a later tick, so the caller's response is never held up by a provider. */
+function scheduleDrain(): void {
   draining ??= new Promise<void>((resolve) => {
     setImmediate(() => {
       void drain().finally(resolve);
@@ -213,16 +307,72 @@ export function enqueueDelivery(institutionId: IdLike, notificationIds: readonly
 }
 
 /**
+ * Queue notifications for out-of-band delivery.
+ *
+ * Returns immediately — this is called from the request path and must never await a provider or
+ * a queue round trip.
+ */
+export function enqueueDelivery(institutionId: IdLike, notificationIds: readonly string[]): void {
+  if (!config.NOTIFICATION_DELIVERY_ENABLED || notificationIds.length === 0) return;
+
+  const tasks = notificationIds.map((notificationId) => ({
+    institutionId: String(institutionId),
+    notificationId,
+  }));
+
+  enqueueChain = enqueueChain
+    .then(async () => {
+      for (const task of tasks) {
+        await pushTask(task);
+      }
+      scheduleDrain();
+    })
+    .catch((err: unknown) => {
+      // pushTask already degrades rather than throwing; this is the last line of defence.
+      logger.error({ err }, 'Could not queue notification delivery');
+    });
+}
+
+/**
+ * Begin draining the queue: once now (picking up whatever a previous process left behind) and
+ * then on a timer, which is what lets one instance finish another's interrupted work.
+ */
+export function startDeliveryWorker(): void {
+  if (pollTimer) return;
+  logger.info({ backend: queueBackendName() }, 'Notification delivery worker started');
+  scheduleDrain();
+  pollTimer = setInterval(() => {
+    scheduleDrain();
+  }, config.NOTIFICATION_DELIVERY_POLL_MS);
+  // Never hold the process open just to poll an empty queue.
+  pollTimer.unref();
+}
+
+export function stopDeliveryWorker(): void {
+  if (!pollTimer) return;
+  clearInterval(pollTimer);
+  pollTimer = null;
+}
+
+/**
  * Wait for the queue to empty. Tests use this to assert on delivery deterministically instead
  * of sleeping; production code has no reason to call it.
  */
 export async function flushDeliveries(): Promise<void> {
-  while (draining) {
-    await draining;
+  const deadline = Date.now() + 30_000;
+  for (;;) {
+    await enqueueChain;
+    while (draining) await draining;
+    if ((await queueSize()) === 0) return;
+    if (Date.now() > deadline) {
+      // Something is stuck — say so rather than spinning forever inside a test.
+      throw new Error('flushDeliveries timed out with work still queued');
+    }
+    scheduleDrain();
   }
 }
 
 /** Drop anything queued. Test-only, so one suite's queue cannot leak into the next. */
-export function clearDeliveryQueue(): void {
-  queue.length = 0;
+export async function clearDeliveryQueue(): Promise<void> {
+  await resetDeliveryQueue();
 }

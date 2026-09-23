@@ -65,7 +65,7 @@ export async function clearDatabase(): Promise<void> {
   sentMailbox.length = 0;
   // Delivery is queued out-of-band, so anything still pending from the previous test would
   // otherwise land in the middle of the next one.
-  clearDeliveryQueue();
+  await clearDeliveryQueue();
   resetPushSender();
 }
 

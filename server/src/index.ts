@@ -4,10 +4,14 @@ import { buildApp } from './app.js';
 import { config } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './db/connection.js';
 import { closeRedis } from './infra/redis.js';
+import { startDeliveryWorker, stopDeliveryWorker } from './services/notificationDelivery.service.js';
 import { logger } from './utils/logger.js';
 
 async function main(): Promise<void> {
   await connectDatabase();
+
+  // Picks up anything a previous process left queued before serving traffic.
+  startDeliveryWorker();
 
   const app = buildApp();
   const server = createServer(app);
@@ -21,6 +25,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'Shutting down…');
     server.close();
+    stopDeliveryWorker();
     await disconnectDatabase();
     await closeRedis();
     process.exit(0);

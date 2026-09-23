@@ -67,12 +67,17 @@ absent in dev, jobs fall back to inline execution with a logged warning (documen
 so the prototype still works at ₹0.
 
 **Status today.** Rate limiting is Redis-backed (see the store and fail-open policy in
-`middleware/rateLimit.middleware.ts` and docs/security/SECURITY.md). Notification delivery uses an
-**in-process** queue in `services/notificationDelivery.service.ts`: it never blocks the request,
-retries with backoff and records every outcome on the notification, but it is per-instance and a
-restart drops anything still queued — the in-app rows it would have delivered are unaffected.
-Moving that queue onto Redis is what a multi-instance deployment needs; the durable queue itself
-is NOT CONFIGURED.
+`middleware/rateLimit.middleware.ts` and docs/security/SECURITY.md). Notification delivery is
+Redis-backed too: `services/deliveryQueue.ts` holds a `pending` LIST and an `inflight` ZSET, and
+claims are made by a Lua script that pops and sets a visibility deadline in one atomic step, so
+two instances never deliver the same item. Work survives a restart (it lives in Redis, not in the
+process) and a worker that dies releases its item once the deadline lapses; the per-channel claim
+in `notificationDelivery.service.ts` keeps that recovery from turning into a duplicate send.
+
+When `REDIS_URL` is unset, or Redis is unreachable at enqueue time, delivery degrades to an
+in-process queue and logs it: the in-app notification is still written and delivery is still
+attempted on that instance, but queued work no longer survives a restart. The in-app row is
+unaffected by any of this — it is the source of truth and is written before anything is queued.
 
 ## Repository pattern & safe queries
 

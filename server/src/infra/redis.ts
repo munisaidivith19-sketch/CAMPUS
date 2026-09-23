@@ -52,6 +52,39 @@ export function getRedisClient(): Redis | null {
   return client;
 }
 
+/**
+ * Wait (briefly) for the client to finish connecting.
+ *
+ * With `enableOfflineQueue: false` a command issued during the connect handshake fails
+ * immediately, so anything that runs in the first moments after boot — the delivery queue's
+ * first enqueue, for instance — would degrade for no good reason. This closes that window
+ * without reintroducing an unbounded wait: if the socket is not up within `timeoutMs`, the
+ * caller proceeds and its own failure handling takes over.
+ *
+ * Deliberately NOT used by the rate limiter: a login must never wait on Redis at all.
+ */
+export async function waitForRedisReady(client: Redis, timeoutMs = 2_000): Promise<boolean> {
+  if (client.status === 'ready') return true;
+  // 'end' means the client has given up reconnecting; waiting would be pointless.
+  if (client.status === 'end') return false;
+
+  return new Promise<boolean>((resolve) => {
+    const done = (value: boolean): void => {
+      clearTimeout(timer);
+      client.off('ready', onReady);
+      resolve(value);
+    };
+    const onReady = (): void => {
+      done(true);
+    };
+    const timer = setTimeout(() => {
+      done(false);
+    }, timeoutMs);
+    timer.unref();
+    client.once('ready', onReady);
+  });
+}
+
 /** Close the connection on shutdown. Safe to call when Redis was never configured. */
 export async function closeRedis(): Promise<void> {
   if (!client) return;

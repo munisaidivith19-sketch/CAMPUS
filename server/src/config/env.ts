@@ -76,6 +76,12 @@ const envSchema = z.object({
   NOTIFICATION_DELIVERY_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
   /** Base backoff in ms; each retry multiplies it (100 → 200 → 400 …). */
   NOTIFICATION_DELIVERY_BACKOFF_MS: z.coerce.number().int().min(10).max(60_000).default(500),
+  /**
+   * How often a worker looks for queued deliveries it has not been told about: another
+   * instance's enqueue, or work a crashed worker left behind. Enqueue on this instance drains
+   * immediately, so this only sets the worst-case latency for the other two cases.
+   */
+  NOTIFICATION_DELIVERY_POLL_MS: z.coerce.number().int().min(100).max(300_000).default(5_000),
 
   /**
    * Push provider. `none` means push is NOT CONFIGURED: attempts are recorded as skipped

@@ -75,6 +75,22 @@ describe('registration', () => {
     expect(second.body.data).toEqual(first.body.data);
   });
 
+  it('tells the real mailbox owner instead of the requester when the account exists', async () => {
+    const existing = await createUser(tenant, { roles: [Role.STUDENT], localPart: 'alreadyhere' });
+    sentMailbox.length = 0;
+
+    await api()
+      .post('/api/v1/auth/register')
+      .send({ email: existing.email, password: PASSWORD, fullName: 'Someone Else' });
+
+    const notice = sentMailbox.at(-1);
+    expect(notice?.to).toBe(existing.email);
+    expect(notice?.subject).toMatch(/already have/i);
+    // Crucially: no new verification token was minted for an account that already exists.
+    expect(extractTokenFromMail(/verify/i)).toBeNull();
+    expect(notice?.text).toMatch(/forgot-password/);
+  });
+
   it('does not overwrite an existing account’s password', async () => {
     const existing = await createUser(tenant, { roles: [Role.STUDENT], localPart: 'victim' });
 

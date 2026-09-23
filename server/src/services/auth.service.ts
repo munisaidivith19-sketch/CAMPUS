@@ -50,6 +50,7 @@ import {
 import { createSession, rotateSession } from './session.service.js';
 import { hasConfirmedTotp, issueDeviceOtp, verifyDeviceOtp, verifyUserTotp } from './mfa.service.js';
 import {
+  sendAccountExistsEmail,
   sendPasswordChangedEmail,
   sendPasswordResetEmail,
   sendVerificationEmail,
@@ -98,6 +99,12 @@ async function burnPasswordTime(candidate: string): Promise<void> {
  * (COLLEGE_EMAIL_DOMAIN) and grants the STUDENT role only — staff accounts are provisioned by
  * an administrator, never claimed by whoever signs up first. Other onboarded institutions
  * (which log in normally) receive their users through provisioning/seed rather than this route.
+ *
+ * PHASE 5 (SaaS multi-tenancy): this single-domain check must become a lookup that resolves the
+ * Institution by matching the email domain against the `Institution.domains` registry — exactly
+ * as `login` already does — treating COLLEGE_EMAIL_DOMAIN as nothing more than the *primary*
+ * institution's seed domain. Until then self-registration is deliberately single-tenant; see
+ * docs/architecture/06-multi-tenancy.md. Do not change the resolution logic before that phase.
  */
 export async function register(input: RegisterInput, context: RequestContext): Promise<void> {
   const domain = emailDomain(input.email);
@@ -120,9 +127,11 @@ export async function register(input: RegisterInput, context: RequestContext): P
   const existing = await userRepository.findByEmail(institutionId, input.email);
 
   if (existing) {
-    // Enumeration-resistant: the caller gets the same response as a fresh signup. We do NOT
-    // reveal the account, and we do not send a new verification token for an existing account.
+    // Enumeration-resistant: the caller gets the same response as a fresh signup, and no new
+    // verification token is minted for an account that already exists. The real mailbox owner
+    // is told what happened out-of-band, which the requester cannot observe.
     logger.info({ institutionId }, 'Registration attempted for an existing account');
+    await sendAccountExistsEmail(existing.email, existing.fullName);
     return;
   }
 

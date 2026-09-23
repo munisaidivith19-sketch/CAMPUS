@@ -55,6 +55,23 @@ subscription plan reference, admin users, and custom-domain readiness. These are
 (see `docs/database/DATABASE.md`) and consumed starting in later phases; Phase 1 only freezes
 the shape.
 
+## Known deviation: self-registration is single-tenant until Phase 5
+
+`POST /auth/register` currently accepts only addresses on `COLLEGE_EMAIL_DOMAIN`, the single
+domain configured for the deployment. **Login already resolves the institution properly**, by
+matching the email domain against the `Institution.domains` registry, so multiple onboarded
+institutions authenticate correctly today; only *self-service signup* is restricted.
+
+This is a deliberate, recorded gap rather than an oversight. Registration is the one anonymous,
+public write path, so it is held to the narrower rule while the platform is single-institution
+in practice; additional institutions receive their users through provisioning/seed.
+
+**Phase 5 (institution SaaS multi-tenancy) must close it:** registration resolves the tenant the
+same way login does — from the email domain against the `Institution` registry — and
+`COLLEGE_EMAIL_DOMAIN` is demoted to what it really is, the *primary* institution's seed domain.
+The tenant contract itself does not change: the tenant is still derived server-side and never
+supplied by the client. A matching note is carried in `server/src/services/auth.service.ts`.
+
 ## What Phase 1 fixes vs. defers
 
 - **Fixed now:** tenant key = `institutionId`; shared-DB-with-discriminator strategy; the

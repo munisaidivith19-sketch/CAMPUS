@@ -76,6 +76,33 @@ export async function sendVerificationEmail(to: string, fullName: string, token:
   });
 }
 
+/**
+ * Sent when someone tries to register an address that already has an account.
+ *
+ * The HTTP response is identical to a fresh signup, so the request itself reveals nothing. This
+ * email is what stops that privacy choice from stranding the real owner: they get told an
+ * account exists and how to get into it, while an attacker probing the endpoint learns nothing
+ * — the mail goes to the mailbox owner, not to whoever made the request.
+ */
+export async function sendAccountExistsEmail(to: string, fullName: string): Promise<void> {
+  await send({
+    to,
+    subject: 'You already have a CampusConnect account',
+    text: [
+      `Hi ${fullName},`,
+      '',
+      'Someone just tried to create a CampusConnect account with this email address, but you',
+      'already have one. No new account was created and nothing has changed.',
+      '',
+      `Sign in:           ${config.WEB_APP_URL}/login`,
+      `Forgot password?   ${config.WEB_APP_URL}/forgot-password`,
+      '',
+      'If this was not you, no action is needed — but consider resetting your password if you',
+      'did not expect this.',
+    ].join('\n'),
+  });
+}
+
 export async function sendPasswordResetEmail(to: string, fullName: string, token: string): Promise<void> {
   const link = `${config.WEB_APP_URL}/reset-password?token=${encodeURIComponent(token)}`;
   await send({

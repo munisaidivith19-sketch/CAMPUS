@@ -5,7 +5,7 @@
  * (ADR-0005 / docs/architecture/06-multi-tenancy.md). Only collections explicitly marked
  * [global] in docs/database/DATABASE.md may omit it.
  */
-import { Schema, model, models, type Model, type Types } from 'mongoose';
+import mongoose, { Schema, model, type Model, type Types } from 'mongoose';
 
 /**
  * Register a Mongoose model idempotently.
@@ -19,9 +19,13 @@ import { Schema, model, models, type Model, type Types } from 'mongoose';
  * Returning the already-compiled model makes re-import a no-op instead of a crash. The schema
  * argument is ignored on the second call, which is correct: the first registration defines the
  * shape for the lifetime of the process.
+ *
+ * The registry is read off the default export on purpose: mongoose is CommonJS, and `models` is
+ * not one of the named bindings Node's ESM interop produces, so importing it by name compiles
+ * under the test transform but throws at runtime under plain `node`/`tsx`.
  */
 export function defineModel<T>(name: string, schema: Schema<T>): Model<T> {
-  return (models[name] as Model<T> | undefined) ?? model<T>(name, schema);
+  return (mongoose.models[name] as Model<T> | undefined) ?? model<T>(name, schema);
 }
 
 export interface Timestamps {

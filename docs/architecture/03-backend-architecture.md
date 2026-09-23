@@ -66,6 +66,14 @@ notification aggregation, file post-processing (scan results), analytics rollups
 absent in dev, jobs fall back to inline execution with a logged warning (documented degradation),
 so the prototype still works at ₹0.
 
+**Status today.** Rate limiting is Redis-backed (see the store and fail-open policy in
+`middleware/rateLimit.middleware.ts` and docs/security/SECURITY.md). Notification delivery uses an
+**in-process** queue in `services/notificationDelivery.service.ts`: it never blocks the request,
+retries with backoff and records every outcome on the notification, but it is per-instance and a
+restart drops anything still queued — the in-app rows it would have delivered are unaffected.
+Moving that queue onto Redis is what a multi-instance deployment needs; the durable queue itself
+is NOT CONFIGURED.
+
 ## Repository pattern & safe queries
 
 Repositories construct queries from **allowlisted** fields only. User-supplied objects are never

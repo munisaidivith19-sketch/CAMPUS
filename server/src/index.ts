@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { buildApp } from './app.js';
 import { config } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './db/connection.js';
+import { closeRedis } from './infra/redis.js';
 import { logger } from './utils/logger.js';
 
 async function main(): Promise<void> {
@@ -21,6 +22,7 @@ async function main(): Promise<void> {
     logger.info({ signal }, 'Shutting down…');
     server.close();
     await disconnectDatabase();
+    await closeRedis();
     process.exit(0);
   };
   process.on('SIGINT', () => void shutdown('SIGINT'));

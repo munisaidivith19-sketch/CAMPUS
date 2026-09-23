@@ -28,3 +28,7 @@ process.env.ARGON2_PARALLELISM = '1';
 process.env.NOTIFICATION_DELIVERY_BACKOFF_MS = '10';
 // No real push provider is ever contacted from a test; suites that need one install a fake.
 process.env.PUSH_PROVIDER = 'none';
+
+// No live Redis either. An empty value is still "set", so dotenv will not put .env's URL back,
+// and the rate limiters fall back to their in-process store — which is what the suite asserts on.
+process.env.REDIS_URL = '';

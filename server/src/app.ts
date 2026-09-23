@@ -10,12 +10,12 @@ import express, { type Express } from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import { API_PREFIX } from '@campusconnect/config';
 import { config } from './config/env.js';
 import { requestIdMiddleware } from './middleware/requestId.middleware.js';
 import { errorMiddleware, notFoundMiddleware } from './middleware/error.middleware.js';
 import { sanitizeMiddleware } from './middleware/sanitize.middleware.js';
+import { globalLimiter } from './middleware/rateLimit.middleware.js';
 import { v1Router } from './routes/v1/index.js';
 
 export function buildApp(): Express {
@@ -53,15 +53,9 @@ export function buildApp(): Express {
 
   app.use(requestIdMiddleware);
 
-  // Coarse global rate limit (finer per-route/per-user limits added with features).
-  app.use(
-    rateLimit({
-      windowMs: 60_000,
-      limit: 300,
-      standardHeaders: 'draft-7',
-      legacyHeaders: false,
-    }),
-  );
+  // Coarse global rate limit (finer per-route/per-user limits live on the routes themselves).
+  // Shares the Redis-or-memory store policy documented in rateLimit.middleware.ts.
+  app.use(globalLimiter);
 
   // Liveness/readiness — no auth, minimal info.
   app.get('/health', (_req, res) => {

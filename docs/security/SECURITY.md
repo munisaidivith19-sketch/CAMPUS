@@ -57,7 +57,7 @@ identity → role → permission → tenant → resource ownership/access → bu
 | XSS | Output encoding, React auto-escaping, CSP, no `dangerouslySetInnerHTML` on untrusted data, sanitize rich text |
 | NoSQL injection | Zod at boundary; operator/`$`-key stripping; allowlisted query fields; parameterized Mongoose queries; never spread user input into filters/updates |
 | CSRF | Bearer tokens for API; for cookie-based refresh, SameSite + CSRF token on state-changing cookie routes |
-| Brute force / credential stuffing | Strict rate limits on auth routes, lockout/backoff, MFA, generic errors |
+| Brute force / credential stuffing | Strict rate limits on auth routes (Redis-backed, see below), lockout/backoff, MFA, generic errors |
 | Session hijacking | Short-lived access tokens, refresh rotation + reuse detection, Secure/httpOnly cookies (web), SecureStore (mobile), device binding signals |
 | Broken auth/z | Central policy layer, fail-closed, authorization tests |
 | API abuse / DoS | Rate limits, request size limits, pagination caps, timeouts, connection/WS limits |
@@ -67,6 +67,21 @@ identity → role → permission → tenant → resource ownership/access → bu
 | Secret leakage | Secrets in `.env` only, never committed, never in client bundles; secret scanning in CI |
 | Prompt injection / AI data leakage | AI inherits caller authorization; tool allowlists; input/output filtering; context isolation (see §9) |
 | Dependency vulns | `npm audit`, Dependabot, Trivy, Semgrep in CI |
+
+### Rate limiting: store and degradation policy
+
+Counters live in Redis (`REDIS_URL`) so a limit holds across processes and instances; without it
+each instance counts alone, which multiplies every limit by the instance count. **A multi-instance
+deployment must set `REDIS_URL`.**
+
+If Redis is unreachable the limiters **fail open**: the request is not rejected, it is counted by
+the in-process store instead, and a warning is logged (throttled to one per minute). This is a
+deliberate exception to the fail-closed rule in §3, which governs *authorization* — an ambiguous
+policy decision must deny. Rate limiting is an availability control that grants nothing, so
+failing closed would convert a Redis blip into a campus-wide login outage and would hand anyone
+who can disrupt Redis a denial-of-service against every user. The degraded mode still enforces the
+same limit per instance, and the account-protecting controls (Argon2id, the per-challenge OTP
+attempt cap, per-user reset throttling, generic responses, MFA) do not depend on Redis at all.
 
 ## 6. Web & API hardening
 

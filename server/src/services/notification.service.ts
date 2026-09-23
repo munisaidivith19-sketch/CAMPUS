@@ -18,6 +18,7 @@ import {
 } from '../repositories/notification.repository.js';
 import type { IdLike, PageRequest } from '../repositories/base.repository.js';
 import { logger } from '../utils/logger.js';
+import { realtime } from './realtimeBus.js';
 import { enqueueDelivery } from './notificationDelivery.service.js';
 
 function toNotificationDTO(notification: NotificationDocument): NotificationDTO {
@@ -58,6 +59,21 @@ export async function notifyUsers(
 
   try {
     const created = await notificationRepository.createMany(institutionId, drafts);
+
+    // Tell anyone who is connected, so the bell updates without a poll. This is an extra
+    // fan-out on top of the durable delivery queue, never a replacement for it: the row is
+    // already written and the queue still carries email and push.
+    created.forEach((notificationId, index) => {
+      const recipientUserId = unique[index];
+      if (!recipientUserId) return;
+      realtime.toUser(String(institutionId), recipientUserId, 'notification:new', {
+        id: notificationId,
+        type: payload.type,
+        title: payload.title,
+        body: payload.body,
+        link: payload.link ?? null,
+      });
+    });
 
     // Out-of-band delivery is queued, never awaited: the in-app rows above are already written
     // and are the source of truth, so a slow or failing provider cannot delay this call or

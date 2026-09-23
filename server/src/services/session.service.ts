@@ -12,6 +12,7 @@ import type { SessionDocument } from '../models/Session.model.js';
 import { sessionRepository } from '../repositories/session.repository.js';
 import type { IdLike } from '../repositories/base.repository.js';
 import type { RequestContext } from '../utils/requestContext.js';
+import { realtime } from './realtimeBus.js';
 import {
   generateRefreshToken,
   hashRefreshToken,
@@ -97,13 +98,23 @@ export function toSessionDTO(session: SessionDocument, currentSessionId?: string
   };
 }
 
+/**
+ * Revoking a session must also close anything it is holding open.
+ *
+ * An access token stays cryptographically valid until it expires, which is fine for a request
+ * that lasts milliseconds and not fine for a socket that would sit there for hours. So every
+ * revocation path below tells the realtime layer to drop that user's live sockets; they
+ * reconnect only if they can still authenticate, which a revoked device cannot.
+ */
 export async function revokeSession(
   institutionId: IdLike,
   userId: IdLike,
   sessionId: IdLike,
   reason: string,
 ): Promise<boolean> {
-  return sessionRepository.revokeOwnedById(institutionId, userId, sessionId, reason);
+  const revoked = await sessionRepository.revokeOwnedById(institutionId, userId, sessionId, reason);
+  if (revoked) realtime.disconnectUser(String(institutionId), String(userId), reason);
+  return revoked;
 }
 
 export async function revokeOtherSessions(
@@ -112,7 +123,11 @@ export async function revokeOtherSessions(
   keepSessionId: IdLike | undefined,
   reason: string,
 ): Promise<number> {
-  return sessionRepository.revokeAllForUser(institutionId, userId, reason, keepSessionId);
+  const count = await sessionRepository.revokeAllForUser(institutionId, userId, reason, keepSessionId);
+  // Every socket for this user goes, including the caller's own: the client that asked for this
+  // is still authenticated and simply reconnects, while the revoked devices cannot.
+  if (count > 0) realtime.disconnectUser(String(institutionId), String(userId), reason);
+  return count;
 }
 
 export async function revokeAllSessions(
@@ -120,5 +135,7 @@ export async function revokeAllSessions(
   userId: IdLike,
   reason: string,
 ): Promise<number> {
-  return sessionRepository.revokeAllForUser(institutionId, userId, reason);
+  const count = await sessionRepository.revokeAllForUser(institutionId, userId, reason);
+  if (count > 0) realtime.disconnectUser(String(institutionId), String(userId), reason);
+  return count;
 }

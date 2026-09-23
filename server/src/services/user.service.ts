@@ -14,6 +14,7 @@ import type { IdLike, Page, PageRequest } from '../repositories/base.repository.
 import { resolvePermissions } from './rbac.service.js';
 import { recordAudit, type AuditContext } from './audit.service.js';
 import { Errors } from '../utils/errors.js';
+import { realtime } from './realtimeBus.js';
 
 export async function toUserDTO(user: UserDocument): Promise<UserDTO> {
   const institutionId = String(user.institutionId);
@@ -94,6 +95,10 @@ export async function assignRoles(
   const previousRoles = [...target.roles];
   const updated = await userRepository.setRoles(institutionId, targetUserId, roles, primaryRole);
   if (!updated) throw Errors.notFound();
+
+  // A socket resolved its permissions when it connected, so a role change has to close it:
+  // otherwise a demoted user keeps the reach of their old role until they happen to reconnect.
+  realtime.disconnectUser(String(institutionId), String(targetUserId), 'ROLES_CHANGED');
 
   await recordAudit({
     institutionId,

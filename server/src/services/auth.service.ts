@@ -47,7 +47,12 @@ import {
   signChallengeToken,
   verifyChallengeToken,
 } from './token.service.js';
-import { createSession, rotateSession } from './session.service.js';
+import {
+  createSession,
+  revokeAllSessions,
+  revokeSession,
+  rotateSession,
+} from './session.service.js';
 import { hasConfirmedTotp, issueDeviceOtp, verifyDeviceOtp, verifyUserTotp } from './mfa.service.js';
 import {
   sendAccountExistsEmail,
@@ -461,7 +466,9 @@ export async function logout(
 ): Promise<void> {
   if (!sessionId) return;
 
-  const revoked = await sessionRepository.revokeOwnedById(institutionId, userId, sessionId, 'USER_LOGOUT');
+  // Through the service, not the repository: revoking a session also drops the live sockets it
+  // was holding open, and that rule belongs in one place.
+  const revoked = await revokeSession(institutionId, userId, sessionId, 'USER_LOGOUT');
   if (!revoked) return;
 
   await recordAudit({
@@ -480,7 +487,7 @@ export async function logoutAll(
   userId: string,
   context: RequestContext,
 ): Promise<number> {
-  const count = await sessionRepository.revokeAllForUser(institutionId, userId, 'USER_LOGOUT_ALL');
+  const count = await revokeAllSessions(institutionId, userId, 'USER_LOGOUT_ALL');
 
   await recordAudit({
     institutionId,
@@ -569,7 +576,7 @@ export async function resetPassword(
 
   await userRepository.setPasswordHash(institutionId, user._id, await hashPassword(newPassword));
   await passwordResetRepository.invalidateAllForUser(institutionId, user._id);
-  const revoked = await sessionRepository.revokeAllForUser(institutionId, user._id, 'PASSWORD_RESET');
+  const revoked = await revokeAllSessions(institutionId, user._id, 'PASSWORD_RESET');
 
   await recordAudit({
     institutionId,

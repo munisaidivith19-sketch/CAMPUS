@@ -24,6 +24,34 @@ function extractBearerToken(req: Request): string | null {
   return token.trim();
 }
 
+/**
+ * Turn an access token into a principal, or throw.
+ *
+ * This is the ONE place a token becomes an identity. The socket handshake calls it too, so
+ * there is no second implementation of "who is this?" to drift — a socket and a request agree
+ * on the caller by construction. Permissions are resolved from the RBAC data here as well, so
+ * a role change takes effect on the next connection without waiting for tokens to expire.
+ */
+export async function principalFromAccessToken(token: string): Promise<Principal> {
+  const claims = verifyAccessToken(token);
+  if (!claims) throw Errors.authInvalid('Your session is no longer valid. Sign in again.');
+
+  try {
+    const permissions = await resolvePermissions(claims.iid, claims.roles);
+    return {
+      userId: claims.sub,
+      institutionId: claims.iid,
+      roles: claims.roles,
+      permissions,
+      sessionId: claims.sid,
+    };
+  } catch (err) {
+    // Fail closed: if permissions cannot be resolved, the caller is not authorized.
+    logger.error({ err }, 'Failed to resolve principal permissions');
+    throw Errors.forbidden();
+  }
+}
+
 export function authenticate(req: Request, _res: Response, next: NextFunction): void {
   const token = extractBearerToken(req);
   if (!token) {
@@ -31,28 +59,13 @@ export function authenticate(req: Request, _res: Response, next: NextFunction): 
     return;
   }
 
-  const claims = verifyAccessToken(token);
-  if (!claims) {
-    next(Errors.authInvalid('Your session is no longer valid. Sign in again.'));
-    return;
-  }
-
-  void resolvePermissions(claims.iid, claims.roles)
-    .then((permissions) => {
-      const principal: Principal = {
-        userId: claims.sub,
-        institutionId: claims.iid,
-        roles: claims.roles,
-        permissions,
-        sessionId: claims.sid,
-      };
+  void principalFromAccessToken(token)
+    .then((principal) => {
       req.principal = principal;
       next();
     })
     .catch((err: unknown) => {
-      // Fail closed: if permissions cannot be resolved, the request is not authorized.
-      logger.error({ err }, 'Failed to resolve principal permissions');
-      next(Errors.forbidden());
+      next(err);
     });
 }
 

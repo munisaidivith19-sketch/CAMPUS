@@ -5,6 +5,7 @@ import { config } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './db/connection.js';
 import { closeRedis } from './infra/redis.js';
 import { startDeliveryWorker, stopDeliveryWorker } from './services/notificationDelivery.service.js';
+import { attachRealtime, closeRealtime, isRealtimeDegraded } from './sockets/index.js';
 import { logger } from './utils/logger.js';
 
 async function main(): Promise<void> {
@@ -16,7 +17,10 @@ async function main(): Promise<void> {
   const app = buildApp();
   const server = createServer(app);
 
-  // Socket.IO is attached here in Phase 3 (realtime). Contract in docs/architecture.
+  // Realtime (Phase 3 Part C-2). Attached before listening so no client can connect to an
+  // HTTP server whose socket layer is not ready yet.
+  await attachRealtime(server);
+  logger.info({ realtimeDegraded: isRealtimeDegraded() }, 'Realtime ready');
 
   server.listen(config.PORT, () => {
     logger.info(`🚀 CampusConnect API listening on :${config.PORT} (${config.NODE_ENV})`);
@@ -26,6 +30,7 @@ async function main(): Promise<void> {
     logger.info({ signal }, 'Shutting down…');
     server.close();
     stopDeliveryWorker();
+    await closeRealtime();
     await disconnectDatabase();
     await closeRedis();
     process.exit(0);

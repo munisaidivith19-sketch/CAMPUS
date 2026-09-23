@@ -93,16 +93,82 @@ routes carry strict per-route rate limits and generic responses.
 | POST | `/admin/student-ids` | `studentid:issue` | Issues/re-issues a card; revokes the previous one. |
 | POST | `/qr/verify` | `qr:verify` | Resolves a scanned code; cross-tenant scans return `NOT_FOUND`. |
 
-### Academics [P3]
-- `GET /subjects`, `GET /classes`, `GET /timetable`
-- `GET /attendance` (scoped to caller's authority), `POST /attendance` (faculty), `POST /attendance/corrections`, `PATCH /attendance/corrections/:id`
+### Academics — **IMPLEMENTED (Phase 3 Part A)**
 
-### Community [P3]
-- `GET/POST /announcements`, `GET /clubs`, `POST /clubs/:id/join`, `GET/POST /events`, `POST /events/:id/register`, `POST /events/:id/check-in`
-- `GET/POST /discussions`, `POST /discussions/:id/comments`, `POST /reports`
-- `GET /notifications`, `PATCH /notifications/:id/read`
+Holding a permission here is not the same as holding the data. `attendance:read:scope` is held
+by faculty, mentors, HODs and the principal alike; the service narrows every query to the
+caller's academic scope, so each sees a different slice:
+
+| Role | Scope |
+| ---- | ----- |
+| Student | their own records only |
+| Faculty | the classes they teach |
+| Class mentor | their section (every subject) + classes they teach |
+| HOD | their department + classes they teach |
+| Principal / system admin | the whole institution |
+
+A role held without a backing assignment (a mentor with no section) resolves to an **empty**
+scope, not a wide one.
+
+| Method | Path | Permission | Notes |
+| ------ | ---- | ---------- | ----- |
+| GET | `/subjects` | `subject:read` | Institution-wide reference data. |
+| GET | `/classes` | `class:read` | Narrowed to the caller's scope. |
+| PUT | `/classes/:id/faculty` | `class:manage` | Assign teaching faculty. |
+| GET | `/timetable` | `timetable:read` | `?scope=SECTION\|FACULTY`. |
+| POST | `/attendance` | `attendance:mark` | Whole roster per class/date/period. Re-marking updates and is audited — never silent. |
+| GET | `/attendance/roster/:id` | `attendance:mark` | The roster to mark against, with anything already recorded. |
+| GET | `/attendance` | `attendance:read:self` or `:scope` | Row list, scope-narrowed. |
+| GET | `/attendance/summary` | `attendance:read:self` or `:scope` | Per-subject + overall, with the below-75% flag. |
+| GET | `/attendance/trend` | `attendance:read:self` or `:scope` | `?granularity=DAILY\|WEEKLY\|MONTHLY\|SEMESTER`. |
+| GET | `/attendance/scope-summary` | `attendance:read:scope` | Per-student cohort view; never available to a student. |
+| POST | `/attendance/corrections` | `attendance:correction:request` | On your own record only; one open request per record. |
+| GET | `/attendance/corrections` | `attendance:correction:review` | The review queue, scope-narrowed. |
+| GET | `/attendance/corrections/mine` | `attendance:correction:request` | Your own requests. |
+| PATCH | `/attendance/corrections/:id` | `attendance:correction:review` | Approve/reject. Approval is **transactional** with the record update. |
+
+**Attendance math contract:** `percentage = SUM(present) / SUM(total conducted) × 100`, derived
+once from raw counts. Responses carry `present` and `total` alongside the percentage; a client
+combining subjects must re-derive from the counts, because averaging per-subject percentages is
+wrong whenever subjects have unequal numbers of conducted periods.
+
+### Community — **IMPLEMENTED (Phase 3 Part A)**
+
+| Method | Path | Permission | Notes |
+| ------ | ---- | ---------- | ----- |
+| GET | `/announcements` | `announcement:read` | Only those addressed to the caller; audience evaluated at read time. |
+| POST | `/announcements` | `announcement:create` | Authority is checked per target: only a principal publishes college-wide, an HOD only to their own department, a mentor only to their own section, a club admin only to their club. |
+| GET | `/announcements/:id` | `announcement:read` | Marks it read. Not addressed to you → `NOT_FOUND`. |
+| POST | `/announcements/:id/read` | `announcement:read` | |
+| GET | `/clubs` | `club:read` | `?suggested=true` returns **rule-based** matches with the reasons they matched. |
+| GET | `/clubs/:id` · `/clubs/:id/members` | `club:read` | Pending requests visible to club admins only. |
+| POST | `/clubs/:id/join` | `club:join` | |
+| PATCH | `/clubs/memberships/:id` | `club:manage` | This club's admins only. |
+| GET | `/events` | `event:read` | `?suggested=true`, `?upcomingOnly=true`. |
+| POST | `/events` | `event:create` | Club events require being that club's admin. |
+| POST | `/events/:id/register` | `event:register` | Capacity enforced by atomic conditional update. |
+| POST | `/events/:id/qr` | `event:register` | Mints an opaque, single-use, purpose-bound check-in code. |
+| POST | `/events/:id/check-in` | `event:checkin` | Resolves identity server-side; a replayed or wrong-purpose code is refused. |
+| GET | `/events/registrations` | `event:read` | The caller's own registrations. |
+| GET/POST | `/discussions` | `discussion:read` / `:create` | |
+| GET/POST | `/discussions/:id/comments` | `discussion:read` / `comment:create` | |
+| POST | `/comments/:id/reactions` | `comment:create` | Idempotent per user. |
+| POST | `/reports` | `report:create` | Anyone may report. |
+| GET | `/moderation/queue` | `moderation:review` | Reported content, most-reported first. |
+| POST | `/moderation/discussions/:id` · `/moderation/comments/:id` | `moderation:review` | `REMOVE` (soft, audited) or `DISMISS`. |
+| GET | `/notifications` | `notification:read:self` | In-app channel only in Part A. |
+| PATCH | `/notifications/:id/read` · POST `/notifications/read-all` | `notification:read:self` | |
+| GET | `/search` | `search:query` | Announcements, discussions, events, clubs — tenant-scoped and authorization-filtered, so it cannot surface content the caller could not otherwise read. |
+
+**Recommendations are rule-based, not AI.** Club and event suggestions are a set intersection
+over declared interests, the categories a student already joined, and department peers; each
+result carries the reasons it matched. AI-assisted suggestions are Phase 5 and would be labelled
+separately.
+
+### Community — Part B (NOT IMPLEMENTED)
 - Chat over Socket.IO (below) + `GET /chats`, `GET /chats/:id/messages`
 - `POST /files` (upload), `GET /files/:id` (authorized/signed download)
+- Push and email notification delivery channels; the moderation-queue UI.
 
 ### Campus operations & career [P4]
 - **Reusable workflow:** `POST /requests` (type=gate|hostel_leave|…), `GET /requests`,

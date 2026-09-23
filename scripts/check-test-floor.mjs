@@ -31,8 +31,11 @@ function fail(message) {
 }
 
 let floor;
+let maxSkipped = 0;
 try {
-  floor = JSON.parse(readFileSync(floorFile, 'utf8')).floor;
+  const config = JSON.parse(readFileSync(floorFile, 'utf8'));
+  floor = config.floor;
+  maxSkipped = config.maxSkipped ?? 0;
 } catch (err) {
   fail(`could not read the floor from ${floorFile} (${err.message})`);
 }
@@ -69,4 +72,20 @@ if (total < floor) {
   );
 }
 
-console.log(`  ✓ test count ${passed}/${total} is at or above the floor of ${floor}`);
+// The total counts skipped tests, so without this the floor could be met by tests that never
+// ran. Only the deliberately environment-gated ones are allowed to be skipped.
+const skipped = report.numPendingTests ?? 0;
+if (skipped > maxSkipped) {
+  fail(
+    `${skipped} test(s) were skipped but only ${maxSkipped} may be.
+` +
+      `    Skipped tests still count toward the total, so this would otherwise hide a shrinking
+` +
+      `    suite. Un-skip them, or raise maxSkipped in tests/test-count-floor.json and say why.`,
+  );
+}
+
+console.log(
+  `  ✓ test count ${passed}/${total} is at or above the floor of ${floor}` +
+    (skipped ? ` (${skipped} skipped, ${maxSkipped} allowed)` : ''),
+);

@@ -34,6 +34,24 @@ career permissions, job matching (deterministic), admin operations, and **AI aut
 - Injection payloads (`$`-operators, dotted keys) are stripped/rejected.
 - Uploads that fail size/MIME/magic-byte/scan are rejected with the right code.
 
+## The test-count floor
+
+`npm test -w server` runs vitest and then `scripts/check-test-floor.mjs`, which fails the build
+when the suite reports fewer tests than `tests/test-count-floor.json` allows, or when more than
+`maxSkipped` of them were skipped. It exists because a dead vitest worker takes its file's tests
+out of the run while the summary still prints green. Raise the floor whenever you add tests.
+
+## Optional services in the suite
+
+The suite needs only MongoDB. Two things are gated on environment variables instead:
+
+- `TEST_REDIS_URL` — runs `tests/integration/delivery-queue-redis.test.ts`, which checks the
+  delivery queue's Lua claim against a real Redis (atomicity, concurrent workers, recovery).
+  Skipped otherwise, and its 5 tests are the `maxSkipped` allowance.
+  `TEST_REDIS_URL=redis://localhost:6379 npx vitest run tests/integration/delivery-queue-redis.test.ts`
+- Everything else — email, push, rate limiting, the delivery queue — runs against in-memory or
+  faked backends. No test contacts a live provider.
+
 ## Quality gates (before any phase is "done")
 
 TypeScript clean, lint clean, format clean, tests green, Docker services healthy, no high-severity

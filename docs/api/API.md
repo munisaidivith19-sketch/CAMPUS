@@ -166,10 +166,39 @@ over declared interests, the categories a student already joined, and department
 result carries the reasons it matched. AI-assisted suggestions are Phase 5 and would be labelled
 separately.
 
-### Community — Part B (NOT IMPLEMENTED)
-- Chat over Socket.IO (below) + `GET /chats`, `GET /chats/:id/messages`
-- `POST /files` (upload), `GET /files/:id` (authorized/signed download)
-- Push and email notification delivery channels; the moderation-queue UI.
+### Chat (Phase 3 Part C-2)
+
+**Chat is NOT end-to-end encrypted.** Bodies are stored server-side so they can be moderated;
+"secure" here means TLS, strict authorization, tenant isolation and no bodies in logs, push,
+email or audit entries. See docs/security/SECURITY.md.
+
+Membership is the grant. `chat:read` means you may use chat at all — the active `ChatMembership`
+row decides *which* conversation, so a caller holding every permission still sees only their own.
+Every refusal is `NOT_FOUND`, never `FORBIDDEN`, so a chat id cannot be probed for existence.
+
+| Method | Path | Permission | Notes |
+| ------ | ---- | ---------- | ----- |
+| GET | `/chats` | `chat:read` | The caller's chats, most recent first, with a per-chat unread count. Materialises the CLASS/CLUB chats they are entitled to. |
+| POST | `/chats` | `chat:create` | `{type:DIRECT,userId}` or `{type:GROUP,name,memberIds}`. CLASS/CLUB are derived and not creatable here. A repeat DIRECT create returns the existing chat (unique index, race-safe). |
+| GET | `/chats/users?q=` | `chat:create` | The new-chat picker: a capped name search (2–60 chars, ≤20 results), never a directory listing. |
+| GET | `/chats/:id` | `chat:read` | Chat + members, members only for members. |
+| POST | `/chats/:id/members` · DELETE `/chats/:id/members/:userId` | `chat:manage` | GROUP only, OWNER/ADMIN only. The owner cannot be removed. |
+| POST | `/chats/:id/leave` | `chat:read` | GROUP only. |
+| GET | `/chats/:id/messages?before=&limit=` | `chat:read` | Cursor pagination by message id (limit ≤ 50), newest first. |
+| POST | `/chats/:id/messages` | `chat:message:send` | HTTP fallback for sending. `clientMessageId` required and idempotent. Rate-limited per user. |
+| PATCH | `/chats/:id/messages/:messageId` | `chat:message:send` | Sender only, within 15 minutes, not deleted. |
+| DELETE | `/chats/:id/messages/:messageId` | `chat:message:send` or `chat:moderate` | Sender soft-deletes their own; a moderator removes one inside their scope (club admin → their club, mentor/HOD/principal → their class chats) and the removal is audited. A deleted message returns `{deleted:true}` with no body, to everyone. |
+| POST | `/chats/:id/read` | `chat:read` | `{lastReadMessageId}`; moves forward only. |
+| PATCH | `/chats/:id/mute` | `chat:read` | Per-member. |
+
+Chat messages are reportable through the existing `POST /reports` with
+`targetType: CHAT_MESSAGE`, and only from inside the chat. The moderation-queue **UI** for chat
+reports is deferred.
+
+### Community — Part C-3 (NOT IMPLEMENTED)
+- `POST /files` (upload), `GET /files/:id` (authorized/signed download); chat `attachmentRef`
+  exists in the schema and is rejected on input until then.
+- The moderation-queue UI.
 
 ### Campus operations & career [P4]
 - **Reusable workflow:** `POST /requests` (type=gate|hostel_leave|…), `GET /requests`,
@@ -181,12 +210,27 @@ separately.
 - Institution admin/branding/subscription, analytics endpoints (role-scoped), recruiter portal,
   `POST /ai/assistant` and `POST /ai/career` (inherit caller authorization; never bypass it).
 
-## Realtime (Socket.IO) [P3+]
+## Realtime (Socket.IO) — implemented in Part C-2
 
-- Auth handshake uses the access token; tenant + identity resolved as in HTTP.
-- Rooms are tenant-scoped: `t:<institutionId>:chat:<chatId>`, `t:<institutionId>:user:<userId>` (notifications).
-- Joining a room requires the same policy check as the equivalent REST endpoint.
-- Events: `message:new`, `message:read`, `typing`, `presence`, `notification:new`.
+- **Handshake:** the access token in `auth.token` (never a query string, never a cookie). Identity
+  and permissions are resolved by the same `principalFromAccessToken` the HTTP middleware uses,
+  **plus** a session-liveness check that HTTP does not do — a request is over in milliseconds, a
+  socket would hold a revoked device open for the rest of the token's life. Logout, logout-all,
+  session revoke, password reset and a role change disconnect that user's live sockets.
+- **Rooms** are tenant-scoped and built server-side: `t:<institutionId>:user:<userId>` (joined
+  automatically) and `t:<institutionId>:chat:<chatId>` (only via `chat:join`, which runs the same
+  policy as the REST route). A client can never name a room.
+- **Client → server:** `chat:join`, `chat:leave`, `message:send`, `message:read`, `typing`. Every
+  payload is Zod-validated — including an injection check on the raw frame, since a socket does
+  not pass through the HTTP sanitize middleware — and every handler acks
+  `{ok:true,data}` or `{ok:false,error:{code}}` without dropping the connection.
+- **Server → client:** `message:new`, `message:updated`, `message:deleted`, `message:read`,
+  `typing`, `presence`, `notification:new`, `chat:removed`, `session:ended`.
+- **Scaling:** the Redis adapter when `REDIS_URL` is reachable, the in-memory adapter otherwise
+  (single-instance fan-out), reported by `isRealtimeDegraded()`.
+- **Limits:** per-connection event budget (`CHAT_SOCKET_EVENTS_PER_MINUTE`), `maxHttpBufferSize`
+  64 KiB, CORS from the same allowlist as HTTP. Sending also passes the per-user Redis-backed
+  send limit, because REST and socket share one service function.
 
 ## Authorization on every protected route
 

@@ -45,10 +45,14 @@ out of the run while the summary still prints green. Raise the floor whenever yo
 
 The suite needs only MongoDB. Two things are gated on environment variables instead:
 
-- `TEST_REDIS_URL` — runs `tests/integration/delivery-queue-redis.test.ts`, which checks the
-  delivery queue's Lua claim against a real Redis (atomicity, concurrent workers, recovery).
-  Skipped otherwise, and its 5 tests are the `maxSkipped` allowance.
-  `TEST_REDIS_URL=redis://localhost:6379 npx vitest run tests/integration/delivery-queue-redis.test.ts`
+- `TEST_REDIS_URL` — runs the two suites that need a real Redis, skipped otherwise. Together
+  their 7 tests are the `maxSkipped` allowance:
+  - `tests/integration/delivery-queue-redis.test.ts` (5) — the delivery queue's Lua claim:
+    atomicity, concurrent workers, recovery.
+  - `tests/integration/chat-realtime-redis.test.ts` (2) — cross-instance socket fan-out through
+    the Redis adapter, which cannot be faked with one server.
+
+  `TEST_REDIS_URL=redis://localhost:6379 npx vitest run tests/integration/delivery-queue-redis.test.ts tests/integration/chat-realtime-redis.test.ts`
 - Everything else — email, push, rate limiting, the delivery queue — runs against in-memory or
   faked backends. No test contacts a live provider.
 

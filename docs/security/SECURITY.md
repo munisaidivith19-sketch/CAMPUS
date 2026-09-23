@@ -68,6 +68,38 @@ identity → role → permission → tenant → resource ownership/access → bu
 | Prompt injection / AI data leakage | AI inherits caller authorization; tool allowlists; input/output filtering; context isolation (see §9) |
 | Dependency vulns | `npm audit`, Dependabot, Trivy, Semgrep in CI |
 
+### Chat: threat model, and what "secure" does and does not mean here
+
+**Chat is NOT end-to-end encrypted.** Messages are stored server-side in plain text, because the
+institution has to be able to moderate them. Nothing in the product is labelled E2EE, and the UI
+says so on the page. What chat *does* guarantee:
+
+- **TLS in transit**, for both HTTP and the WebSocket.
+- **Membership is the grant.** An active `ChatMembership` row is the only thing that opens a
+  conversation. Holding `chat:read` — or every permission in the catalog — shows a caller nothing
+  they are not a member of, and a refusal is always `NOT_FOUND`, so a chat id cannot be probed.
+- **Derived membership follows its source.** CLASS and CLUB chats are re-synced from the roster
+  and the club's approved members, on change and on access, so losing the underlying membership
+  revokes the conversation on the next request.
+- **No bodies outside the chat.** Not in logs, not in push or email (an offline notification says
+  only "New message in <chat>"), and not in audit entries — a moderator removal records the
+  message id and the chat, never the text.
+- **Deletion removes the text.** A soft-deleted message keeps its place so replies still read,
+  and returns no body to anyone, including its sender and a moderator.
+- **The socket is not a looser door.** Same identity resolution as HTTP plus a session-liveness
+  check, same Zod schemas, same CORS allowlist, rooms named by the server, per-connection event
+  limits, and a per-user Redis-backed send limit shared with the REST path.
+- **Plain text out.** The web client renders bodies as text; `dangerouslySetInnerHTML` is not used
+  in the chat feature.
+
+Residual risks, stated plainly: an institution administrator with database access can read
+messages; presence is best-effort and per-instance; chat messages are deliberately **not** in
+`/search`; and the moderation-queue UI for reported chat messages is deferred to a later
+increment (reports are recorded and audited in the meantime).
+
+**Future work:** E2EE for protected DMs and groups, using established libraries only, with the
+moderation consequences designed for rather than discovered.
+
 ### Rate limiting: store and degradation policy
 
 Counters live in Redis (`REDIS_URL`) so a limit holds across processes and instances; without it

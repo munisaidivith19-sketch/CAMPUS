@@ -70,9 +70,27 @@ Grouped by domain. Key fields and relationships are listed; each becomes a
 - **Discussion** — institutionId, authorUserId, category, title, body, tags[], status.
 - **Comment** — institutionId, → discussion(or parentComment), authorUserId, body, reactions{}, reportedCount.
 - **Notification** — institutionId, → recipientUserId, type, channels[], payload, readAt. (**TTL** on old read notifications.)
-- **Chat** — institutionId, type(direct/group/class/club/…), → members via ChatMembership, name, → createdBy.
-- **ChatMembership** — institutionId, → chat, → userId, role, lastReadMessageId, muted.
-- **ChatMessage** — institutionId, → chat, → senderUserId, body/attachmentRef, replyTo, type, editedAt, deletedAt. (E2EE for protected DMs/groups — established libraries only.)
+- **Chat** — institutionId, type(DIRECT/GROUP/CLASS/CLUB), name, → createdByUserId, sourceRef
+  (class/club for derived chats), directKey, lastMessageAt. Members live in ChatMembership.
+- **ChatMembership** — institutionId, → chat, → userId, role, lastReadMessageId, muted, leftAt.
+- **ChatMessage** — institutionId, → chat, → senderUserId, body, attachmentRef (Part C-3, unused),
+  replyTo, type, clientMessageId, editedAt, deletedAt, deletedByUserId.
+
+**Chat is not E2EE as implemented** (Part C-2). Bodies are stored in plain text so they can be
+moderated; E2EE for protected DMs/groups remains future work and would use established libraries
+only. Deletion is soft but the body is *removed*, not merely hidden.
+
+Indexes created (all tenant-leading):
+
+| Collection | Index | Why |
+| ---------- | ----- | --- |
+| ChatMembership | `{institutionId, userId, chatId}` unique | The access check, and one row per pair so "am I a member?" is never ambiguous. |
+| ChatMembership | `{institutionId, chatId}` | Who is in this chat: member list and message fan-out. |
+| ChatMessage | `{institutionId, chatId, _id: -1}` | The cursor page IS this index; an offset would drift as messages arrive mid-scroll. |
+| ChatMessage | `{institutionId, chatId, senderUserId, clientMessageId}` unique, partial (`clientMessageId` is a string) | Idempotent send: a retry is a duplicate-key error, not a second message. Partial because SYSTEM messages have none. |
+| Chat | `{institutionId, directKey}` unique, partial (`directKey` is a string) | One DM per pair, with the create race settled by the database. |
+| Chat | `{institutionId, type, sourceRef}` unique, partial (`sourceRef` is an objectId) | One chat per class and per club, created lazily on first access. |
+| Chat | `{institutionId, lastMessageAt: -1}` | Chat-list ordering. |
 - **File** — institutionId, ownerUserId, storageKey, originalName, mime, size, checksum, scanStatus(pending/clean/infected), visibility, → linkedResource.
 
 ### Campus operations

@@ -80,6 +80,12 @@ export async function verifyQrToken(
   verifierUserId: IdLike,
   token: string,
   context: AuditContext,
+  /**
+   * When given, the token's purpose must match. Checked BEFORE the single-use claim, so
+   * presenting a student-ID code at an event scanner is rejected without burning the code —
+   * a purpose confusion must not also cost the holder their valid token.
+   */
+  expectedPurpose?: QRPurpose,
 ): Promise<QRVerifyDTO> {
   const record = await qrTokenRepository.findRedeemableByTokenHash(sha256(token));
 
@@ -100,6 +106,7 @@ export async function verifyQrToken(
   if (!record) return reject('UNKNOWN_OR_EXPIRED');
   // Cross-tenant scan: indistinguishable from an unknown code, by design.
   if (String(record.institutionId) !== verifierInstitutionId) return reject('TENANT_MISMATCH');
+  if (expectedPurpose && record.purpose !== expectedPurpose) return reject('PURPOSE_MISMATCH');
   if (record.singleUse && !(await qrTokenRepository.markUsed(record._id))) {
     return reject('ALREADY_USED');
   }

@@ -9,6 +9,8 @@ import { authRouter } from './auth.routes.js';
 import { meRouter } from './me.routes.js';
 import { adminRouter } from './admin.routes.js';
 import { qrRouter } from './qr.routes.js';
+import { academicsRouter } from './academics.routes.js';
+import { communityRouter } from './community.routes.js';
 
 export const v1Router = Router();
 
@@ -17,18 +19,28 @@ v1Router.get('/meta', (_req, res) => {
   sendSuccess(res, {
     name: 'CampusConnect API',
     version: API_VERSION,
-    phase: 2,
-    status: 'identity-and-security',
+    phase: 3,
+    status: 'core-campus-platform-part-a',
     features: {
       auth: true,
       mfa: true,
       sessions: true,
       rbac: true,
       studentId: true,
-      // Everything below arrives in Phase 3+.
-      academics: false,
-      community: false,
+      // Phase 3 Part A.
+      academics: true,
+      attendance: true,
+      announcements: true,
+      clubs: true,
+      events: true,
+      discussions: true,
+      notifications: true,
+      search: true,
+      // Part B and later.
+      chat: false,
+      fileSharing: false,
       realtime: false,
+      pushDelivery: false,
     },
   });
 });
@@ -39,6 +51,9 @@ v1Router.use('/me', meRouter);
 v1Router.use('/admin', adminRouter);
 v1Router.use('/qr', qrRouter);
 
+// --- Phase 3 Part A: Academics & Community -----------------------------------
+v1Router.use('/', academicsRouter);
+v1Router.use('/', communityRouter);
+
 // --- Feature routers (mounted in later phases) -------------------------------
-// v1Router.use('/attendance', attendanceRouter); // Phase 3
-// ... see docs/api/API.md for the full planned map.
+// Part B adds chat + files + realtime; see docs/api/API.md for the full planned map.

@@ -189,5 +189,9 @@ export async function seedDevelopmentData(domain = 'jnn.edu.in'): Promise<SeedRe
     }
   }
 
+  // Phase 3: academics + community data on top of the identity baseline.
+  const { seedAcademicsAndCommunity } = await import('./seeders.academics.js');
+  await seedAcademicsAndCommunity(institution);
+
   return { institution, credentials };
 }

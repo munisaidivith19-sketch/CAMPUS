@@ -1,5 +1,5 @@
 {
-  "_comment": "Minimum number of tests the suite must report, and how many of them may be skipped. Raise the floor when you add tests; never lower it without saying why in the commit message. A run that reports fewer than this FAILS, even if every test it did run passed — see scripts/check-test-floor.mjs for why. maxSkipped stops the floor from being met by skipped tests: the only conditionally-skipped file today is tests/integration/delivery-queue-redis.test.ts (5 tests), which runs when TEST_REDIS_URL is set.",
-  "floor": 361,
-  "maxSkipped": 5
+  "_comment": "Minimum number of tests the suite must report, and how many of them may be skipped. Raise the floor when you add tests; never lower it without saying why in the commit message. A run that reports fewer than this FAILS, even if every test it did run passed — see scripts/check-test-floor.mjs for why. maxSkipped stops the floor from being met by skipped tests: the only conditionally-skipped files are the two that need a live Redis — tests/integration/delivery-queue-redis.test.ts (5 tests) and tests/integration/chat-realtime-redis.test.ts (2 tests), both gated on TEST_REDIS_URL.",
+  "floor": 441,
+  "maxSkipped": 7
 }

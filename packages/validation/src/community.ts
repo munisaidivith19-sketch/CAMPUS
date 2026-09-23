@@ -176,7 +176,8 @@ export const createCommentSchema = z.object({
 });
 
 export const reportContentSchema = z.object({
-  targetType: z.enum(['DISCUSSION', 'COMMENT']),
+  // CHAT_MESSAGE is reportable from Part C-2 on; the moderation-queue UI for it is deferred.
+  targetType: z.enum(['DISCUSSION', 'COMMENT', 'CHAT_MESSAGE']),
   targetId: objectIdSchema,
   reason: z.string().trim().min(5, 'Say what is wrong with this content').max(500),
 });

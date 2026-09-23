@@ -25,6 +25,21 @@ const SELF_SERVICE: readonly Permission[] = [
   Permission.PROFILE_UPDATE_SELF,
 ];
 
+/**
+ * Chat for an ordinary member of the community: read your chats, start one, send in one.
+ *
+ * `chat:manage` (group admin actions) is deliberately NOT here — it is granted per chat by the
+ * OWNER/ADMIN check, and the permission only says "may administer a group at all". Every role
+ * that can hold a conversation can own a group they created, so it rides along with the base;
+ * `chat:moderate` does not, because removing someone else's message is a moderator act.
+ */
+const CHAT_BASE: readonly Permission[] = [
+  Permission.CHAT_READ,
+  Permission.CHAT_CREATE,
+  Permission.CHAT_MESSAGE_SEND,
+  Permission.CHAT_MANAGE,
+];
+
 /** What any member of the campus community can see and do in shared spaces. */
 const COMMUNITY_BASE: readonly Permission[] = [
   Permission.ANNOUNCEMENT_READ,
@@ -36,6 +51,7 @@ const COMMUNITY_BASE: readonly Permission[] = [
   Permission.REPORT_CREATE,
   Permission.NOTIFICATION_READ_SELF,
   Permission.SEARCH_QUERY,
+  ...CHAT_BASE,
 ];
 
 /** Academic reference data every member of the institution may look at. */
@@ -82,6 +98,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     ...TEACHING,
     Permission.GATEPASS_APPROVE,
     Permission.STUDENT_ID_READ,
+    // Mentors moderate their own section's class chats — the scope check decides which.
+    Permission.CHAT_MODERATE,
   ],
   [Role.HOD]: [
     ...TEACHING,
@@ -89,6 +107,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     Permission.GATEPASS_APPROVE,
     Permission.STUDENT_ID_READ,
     Permission.MODERATION_REVIEW,
+    Permission.CHAT_MODERATE,
   ],
   [Role.PRINCIPAL]: [
     ...STAFF_BASE,
@@ -100,6 +119,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     Permission.AUDIT_READ,
     Permission.ROLE_READ,
     Permission.MODERATION_REVIEW,
+    Permission.CHAT_MODERATE,
   ],
   [Role.CLUB_ADMIN]: [
     ...SELF_SERVICE,
@@ -110,6 +130,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     Permission.EVENT_CREATE,
     Permission.EVENT_REGISTER,
     Permission.EVENT_CHECKIN,
+    // Club admins moderate their own club's chat, and only that one.
+    Permission.CHAT_MODERATE,
   ],
   [Role.HOSTEL_WARDEN]: [...STAFF_BASE, Permission.GATEPASS_APPROVE, Permission.QR_VERIFY],
   [Role.MESS_INCHARGE]: [...SELF_SERVICE, ...COMMUNITY_BASE],

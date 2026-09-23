@@ -83,6 +83,18 @@ const envSchema = z.object({
    */
   NOTIFICATION_DELIVERY_POLL_MS: z.coerce.number().int().min(100).max(300_000).default(5_000),
 
+  /** How many people one group chat may hold. */
+  CHAT_GROUP_MAX_MEMBERS: z.coerce.number().int().min(2).max(2_000).default(256),
+  /**
+   * Per (chat, recipient) quiet period for offline chat notifications. A burst of messages in
+   * one conversation is one thing to be told about, not thirty.
+   */
+  CHAT_NOTIFY_DEBOUNCE_MS: z.coerce.number().int().min(0).max(3_600_000).default(120_000),
+  /** Messages one user may send per minute, across every chat. */
+  CHAT_SEND_RATE_PER_MINUTE: z.coerce.number().int().min(1).max(600).default(60),
+  /** Socket events one connection may emit per minute before it is throttled. */
+  CHAT_SOCKET_EVENTS_PER_MINUTE: z.coerce.number().int().min(10).max(6_000).default(240),
+
   /**
    * Push provider. `none` means push is NOT CONFIGURED: attempts are recorded as skipped
    * rather than failed, and nothing is sent. No provider is contacted in tests.

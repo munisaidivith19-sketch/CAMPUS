@@ -86,6 +86,17 @@ export const Permission = {
   NOTIFICATION_READ_SELF: 'notification:read:self',
   SEARCH_QUERY: 'search:query',
 
+  // --- Chat (Phase 3 Part C-2) -----------------------------------------------
+  /**
+   * These open the door; membership decides the room. Holding `chat:read` lets you use chat at
+   * all — it never grants sight of a conversation you are not a member of.
+   */
+  CHAT_READ: 'chat:read',
+  CHAT_CREATE: 'chat:create',
+  CHAT_MESSAGE_SEND: 'chat:message:send',
+  CHAT_MANAGE: 'chat:manage',
+  CHAT_MODERATE: 'chat:moderate',
+
   // --- Later-phase anchors (seeded now, enforced by the phase that ships them)
   GATEPASS_APPROVE: 'gatepass:approve',
 } as const;

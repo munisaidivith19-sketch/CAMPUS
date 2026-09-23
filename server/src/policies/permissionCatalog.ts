@@ -61,6 +61,13 @@ export const PERMISSION_DESCRIPTIONS: Readonly<Record<Permission, string>> = {
   [Permission.NOTIFICATION_READ_SELF]: 'Read your own notifications.',
   [Permission.SEARCH_QUERY]: 'Search across announcements, discussions, events and clubs.',
 
+  [Permission.CHAT_READ]: 'Use chat and read the conversations you are a member of.',
+  [Permission.CHAT_CREATE]: 'Start a direct message or create a group chat.',
+  [Permission.CHAT_MESSAGE_SEND]: 'Send messages in chats you belong to.',
+  [Permission.CHAT_MANAGE]: 'Administer a group chat you own: add or remove its members.',
+  [Permission.CHAT_MODERATE]:
+    'Remove someone else’s chat message, within the classes or clubs you moderate. Highly privileged.',
+
   [Permission.GATEPASS_APPROVE]: 'Approve student gate passes. (Phase 4)',
 };
 

@@ -45,6 +45,16 @@ const FALLBACK_LOG_INTERVAL_MS = 60_000;
  * short outage degrades to per-instance limiting rather than to no limiting at all.
  */
 export class ResilientStore implements Store {
+  /**
+   * Tells express-rate-limit that this store's keys belong to this instance alone.
+   *
+   * Without it the validator identifies a store by its CLASS NAME, sees every limiter as one
+   * shared store, and reports a spurious ERR_ERL_DOUBLE_COUNT the moment a request passes the
+   * global limiter and then a per-route one. Each instance really does own its key space — its
+   * own Redis prefix and its own memory store — so this is a statement of fact, not a silencer.
+   */
+  readonly localKeys = true;
+
   private readonly fallback = new MemoryStore();
   private lastWarnAt = 0;
 

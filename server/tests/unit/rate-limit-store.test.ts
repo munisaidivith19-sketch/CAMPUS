@@ -83,6 +83,12 @@ describe('ResilientStore', () => {
     await expect(store.get('a')).resolves.toBeUndefined();
   });
 
+  it('declares its keys as its own, so limiters are not confused for one another', () => {
+    // express-rate-limit identifies a store without this by class name, and then reports a
+    // spurious double count when one request passes the global limiter and a per-route one.
+    expect(new ResilientStore(null).localKeys).toBe(true);
+  });
+
   it('resets only the local counter', async () => {
     const primary = workingPrimary();
     const resetAll = vi.fn();

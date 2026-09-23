@@ -85,6 +85,7 @@ routes carry strict per-route rate limits and generic responses.
 | PATCH | `/me/profile/student` · `/me/profile/faculty` | Bearer | Self-editable profile fields only. |
 | GET | `/me/student-id` | Bearer | The caller's active digital ID card. |
 | POST | `/me/student-id/qr` | Bearer | Mints a short-lived, single-use, **opaque** QR token (no PII). |
+| POST | `/me/push-tokens` · DELETE `/me/push-tokens` | Bearer | Registers/removes a device push token for the caller only. |
 | POST | `/me/mfa/enroll` · `/me/mfa/confirm` · `/me/mfa/disable` | Bearer | TOTP enrollment; disabling re-confirms the password. |
 | GET | `/admin/users` | `user:read` | Tenant-scoped directory, paginated. |
 | PUT | `/admin/users/:id/roles` | `role:assign` | Role assignment; audited with before/after roles. |
@@ -156,7 +157,7 @@ wrong whenever subjects have unequal numbers of conducted periods.
 | POST | `/reports` | `report:create` | Anyone may report. |
 | GET | `/moderation/queue` | `moderation:review` | Reported content, most-reported first. |
 | POST | `/moderation/discussions/:id` · `/moderation/comments/:id` | `moderation:review` | `REMOVE` (soft, audited) or `DISMISS`. |
-| GET | `/notifications` | `notification:read:self` | In-app channel only in Part A. |
+| GET | `/notifications` | `notification:read:self` | In-app row is the source of truth; each row carries its email/push `deliveries` outcomes. |
 | PATCH | `/notifications/:id/read` · POST `/notifications/read-all` | `notification:read:self` | |
 | GET | `/search` | `search:query` | Announcements, discussions, events, clubs — tenant-scoped and authorization-filtered, so it cannot surface content the caller could not otherwise read. |
 

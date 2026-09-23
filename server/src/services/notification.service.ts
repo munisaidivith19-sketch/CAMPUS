@@ -1,9 +1,10 @@
 /**
- * In-app notifications (Phase 3 Part A).
+ * In-app notifications.
  *
- * Only the IN_APP channel is delivered here. **Push and email delivery are NOT CONFIGURED** —
- * they are Part B. Nothing in this file pretends otherwise: a notification is a row other
- * features create, and the client reads it.
+ * This file only ever writes the in-app row, which is the source of truth. Out-of-band delivery
+ * (email, push) is queued from here and carried out by notificationDelivery.service — never
+ * awaited, so a provider can be slow, failing or NOT CONFIGURED without affecting the row or the
+ * request that created it.
  *
  * Emitting is deliberately best-effort. A notification is a side effect of an action, never the
  * action itself, so a failure to notify is logged and swallowed rather than rolling back an
@@ -17,6 +18,7 @@ import {
 } from '../repositories/notification.repository.js';
 import type { IdLike, PageRequest } from '../repositories/base.repository.js';
 import { logger } from '../utils/logger.js';
+import { enqueueDelivery } from './notificationDelivery.service.js';
 
 function toNotificationDTO(notification: NotificationDocument): NotificationDTO {
   return {
@@ -27,6 +29,13 @@ function toNotificationDTO(notification: NotificationDocument): NotificationDTO 
     link: notification.link ?? null,
     read: notification.readAt !== null && notification.readAt !== undefined,
     createdAt: notification.createdAt.toISOString(),
+    deliveries: notification.deliveries.map((delivery) => ({
+      channel: delivery.channel,
+      status: delivery.status,
+      attempts: delivery.attempts,
+      lastAttemptAt: delivery.lastAttemptAt ? delivery.lastAttemptAt.toISOString() : null,
+      failureReason: delivery.failureReason ?? null,
+    })),
   };
 }
 
@@ -48,7 +57,15 @@ export async function notifyUsers(
   }));
 
   try {
-    return await notificationRepository.createMany(institutionId, drafts);
+    const created = await notificationRepository.createMany(institutionId, drafts);
+
+    // Out-of-band delivery is queued, never awaited: the in-app rows above are already written
+    // and are the source of truth, so a slow or failing provider cannot delay this call or
+    // undo them. Recipients come from the rows we just wrote, so delivery inherits the same
+    // audience the in-app path resolved — there is no second targeting path to drift.
+    enqueueDelivery(institutionId, created);
+
+    return created.length;
   } catch (err) {
     logger.error({ err, type: payload.type }, 'Failed to emit notifications');
     return 0;

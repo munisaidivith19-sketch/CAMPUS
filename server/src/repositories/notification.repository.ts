@@ -38,8 +38,9 @@ class NotificationRepository extends TenantRepository<NotificationEntity> {
     super(NotificationModel);
   }
 
-  async createMany(institutionId: IdLike, drafts: NotificationDraft[]): Promise<number> {
-    if (drafts.length === 0) return 0;
+  /** Returns the ids of the rows written, so the caller can queue them for delivery. */
+  async createMany(institutionId: IdLike, drafts: NotificationDraft[]): Promise<string[]> {
+    if (drafts.length === 0) return [];
     const institution = requireObjectId(institutionId);
 
     const documents = drafts.map((draft) => ({
@@ -50,13 +51,16 @@ class NotificationRepository extends TenantRepository<NotificationEntity> {
       body: draft.body,
       link: draft.link ?? null,
       // Part A delivers in-app only; Part B adds PUSH/EMAIL to this list.
-      channels: [NotificationChannel.IN_APP],
+      // IN_APP is what this row IS; EMAIL/PUSH are attempted out-of-band by the delivery
+      // service, which records its outcome in `deliveries`.
+      channels: [NotificationChannel.IN_APP, NotificationChannel.EMAIL, NotificationChannel.PUSH],
+      deliveries: [],
       readAt: null,
       autoDeleteAt: null,
     }));
 
     const created = await NotificationModel.insertMany(documents, { ordered: false });
-    return created.length;
+    return created.map((row) => String(row._id));
   }
 
   async listForRecipient(

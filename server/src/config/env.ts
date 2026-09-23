@@ -64,6 +64,28 @@ const envSchema = z.object({
   /** Public origin of the web app, used to build links inside emails. */
   WEB_APP_URL: z.string().url().default('http://localhost:5173'),
 
+  // --- Notification delivery (Phase 3 Part B) ---
+  /**
+   * Out-of-band delivery is a side channel on top of the in-app notification row, which stays
+   * the source of truth. Turning this off stops delivery attempts; it never stops the row.
+   */
+  NOTIFICATION_DELIVERY_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  NOTIFICATION_DELIVERY_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
+  /** Base backoff in ms; each retry multiplies it (100 → 200 → 400 …). */
+  NOTIFICATION_DELIVERY_BACKOFF_MS: z.coerce.number().int().min(10).max(60_000).default(500),
+
+  /**
+   * Push provider. `none` means push is NOT CONFIGURED: attempts are recorded as skipped
+   * rather than failed, and nothing is sent. No provider is contacted in tests.
+   */
+  PUSH_PROVIDER: z.enum(['none', 'expo']).default('none'),
+  PUSH_API_URL: z.string().url().default('https://exp.host/--/api/v2/push/send'),
+  /** Optional Expo access token. Never hardcoded; absent is a valid, degraded configuration. */
+  EXPO_ACCESS_TOKEN: z.string().optional(),
+
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 

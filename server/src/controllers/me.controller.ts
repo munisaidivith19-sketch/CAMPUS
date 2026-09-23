@@ -11,6 +11,7 @@ import type {
   mfaDisableSchema,
   mfaEnrollVerifySchema,
   paginationQuerySchema,
+  pushTokenSchema,
   sessionIdParamSchema,
   updateFacultyProfileSchema,
   updateMeSchema,
@@ -38,6 +39,7 @@ import { getActiveStudentId } from '../services/studentId.service.js';
 import { issueQrToken } from '../services/qr.service.js';
 import { confirmUserTotp, disableUserTotp, enrollUserTotp } from '../services/mfa.service.js';
 import { recordAudit } from '../services/audit.service.js';
+import { userRepository } from '../repositories/user.repository.js';
 import { AuditAction, AuditResult } from '@campusconnect/types';
 
 export async function getMe(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -234,6 +236,34 @@ export async function issueMyQr(req: Request, res: Response, next: NextFunction)
         getRequestContext(req),
       ),
     );
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Register this device for push notifications.
+ *
+ * The token is always the caller's own — there is no user id in the path — so one user cannot
+ * register a device against another account and start receiving their notifications.
+ */
+export async function postPushToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const principal = requirePrincipal(req);
+    const { token } = validatedBody<typeof pushTokenSchema>(res);
+    await userRepository.addPushToken(principal.institutionId, principal.userId, token);
+    sendSuccess(res, { status: 'REGISTERED' }, { status: 201 });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deletePushToken(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const principal = requirePrincipal(req);
+    const { token } = validatedBody<typeof pushTokenSchema>(res);
+    await userRepository.removePushToken(principal.institutionId, principal.userId, token);
+    sendSuccess(res, { status: 'UNREGISTERED' });
   } catch (err) {
     next(err);
   }

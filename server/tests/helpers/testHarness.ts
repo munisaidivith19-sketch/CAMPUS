@@ -16,6 +16,8 @@ import { studentProfileRepository } from '../../src/repositories/profile.reposit
 import { invalidateRbacCache } from '../../src/services/rbac.service.js';
 import { sentMailbox } from '../../src/services/email.service.js';
 import { resetRateLimiters } from '../../src/middleware/rateLimit.middleware.js';
+import { clearDeliveryQueue } from '../../src/services/notificationDelivery.service.js';
+import { resetPushSender } from '../../src/services/push.service.js';
 
 export const app = buildApp();
 export const api = (): supertest.Agent => supertest.agent(app);
@@ -61,6 +63,10 @@ export async function clearDatabase(): Promise<void> {
   invalidateRbacCache();
   resetRateLimiters();
   sentMailbox.length = 0;
+  // Delivery is queued out-of-band, so anything still pending from the previous test would
+  // otherwise land in the middle of the next one.
+  clearDeliveryQueue();
+  resetPushSender();
 }
 
 export interface TestTenant {

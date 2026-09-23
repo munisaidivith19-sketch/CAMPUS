@@ -11,6 +11,7 @@ import {
   mfaDisableSchema,
   mfaEnrollVerifySchema,
   paginationQuerySchema,
+  pushTokenSchema,
   sessionIdParamSchema,
   updateFacultyProfileSchema,
   updateMeSchema,
@@ -91,6 +92,24 @@ meRouter.post(
   '/student-id/qr',
   authorizeSelf([Permission.QR_ISSUE_SELF]),
   meController.issueMyQr,
+);
+
+/**
+ * Push-token registration. Gated on the caller's own notification permission — the token is
+ * always attached to the caller, so this can only ever wire up their own device.
+ */
+meRouter.post(
+  '/push-tokens',
+  authorizeSelf([Permission.NOTIFICATION_READ_SELF]),
+  validate({ body: pushTokenSchema }),
+  meController.postPushToken,
+);
+
+meRouter.delete(
+  '/push-tokens',
+  authorizeSelf([Permission.NOTIFICATION_READ_SELF]),
+  validate({ body: pushTokenSchema }),
+  meController.deletePushToken,
 );
 
 meRouter.post('/mfa/enroll', authorizeSelf([Permission.MFA_MANAGE_SELF]), meController.enrollMfa);

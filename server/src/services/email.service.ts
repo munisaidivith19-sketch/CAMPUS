@@ -134,6 +134,26 @@ export async function sendPasswordChangedEmail(to: string, fullName: string): Pr
   });
 }
 
+/**
+ * The email channel for an in-app notification.
+ *
+ * Carries only what the notification already shows the user in the app, plus a link back into
+ * it. Nothing here is a credential, so a misdirected email leaks no more than the app would.
+ */
+export async function sendNotificationEmail(
+  to: string,
+  fullName: string,
+  notification: { title: string; body: string; link?: string | null },
+): Promise<void> {
+  const lines = [`Hi ${fullName},`, '', notification.body];
+  if (notification.link) {
+    lines.push('', `Open it here: ${config.WEB_APP_URL}${notification.link}`);
+  }
+  lines.push('', 'You are receiving this because it was addressed to you on CampusConnect.');
+
+  await send({ to, subject: notification.title, text: lines.join('\n') });
+}
+
 export async function sendDeviceOtpEmail(to: string, fullName: string, code: string): Promise<void> {
   await send({
     to,

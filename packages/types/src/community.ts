@@ -73,13 +73,36 @@ export const NotificationType = {
 } as const;
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType];
 
-/** Part A delivers IN_APP only. PUSH and EMAIL channels arrive in Part B. */
 export const NotificationChannel = {
   IN_APP: 'IN_APP',
   PUSH: 'PUSH',
   EMAIL: 'EMAIL',
 } as const;
 export type NotificationChannel = (typeof NotificationChannel)[keyof typeof NotificationChannel];
+
+/**
+ * The outcome of an out-of-band delivery attempt.
+ *
+ * `SKIPPED` is distinct from `FAILED` on purpose: a provider that is NOT CONFIGURED, or a user
+ * with no device registered, is not an error to investigate — it is an expected, degraded
+ * state. Conflating the two would bury real failures in noise.
+ */
+export const DeliveryStatus = {
+  PENDING: 'PENDING',
+  SENT: 'SENT',
+  FAILED: 'FAILED',
+  SKIPPED: 'SKIPPED',
+} as const;
+export type DeliveryStatus = (typeof DeliveryStatus)[keyof typeof DeliveryStatus];
+
+export interface NotificationDeliveryDTO {
+  channel: NotificationChannel;
+  status: DeliveryStatus;
+  attempts: number;
+  lastAttemptAt: string | null;
+  /** Short, non-sensitive reason. Never a provider credential or a recipient address. */
+  failureReason: string | null;
+}
 
 export interface AnnouncementTargetDTO {
   scope: AnnouncementScope;
@@ -189,6 +212,8 @@ export interface NotificationDTO {
   link: string | null;
   read: boolean;
   createdAt: string;
+  /** Out-of-band delivery attempts. The in-app row stands regardless of what these say. */
+  deliveries: NotificationDeliveryDTO[];
 }
 
 export const SearchResultKind = {

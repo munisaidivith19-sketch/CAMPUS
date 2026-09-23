@@ -22,3 +22,9 @@ process.env.JWT_REFRESH_SECRET ??= 'test-refresh-secret-that-is-long-enough-0000
 process.env.ARGON2_MEMORY_COST = '8192';
 process.env.ARGON2_TIME_COST = '2';
 process.env.ARGON2_PARALLELISM = '1';
+
+// Retry backoff is what we assert on, not what we wait for — keep it at the schema's floor so
+// a test that exercises exhausted retries finishes in milliseconds instead of seconds.
+process.env.NOTIFICATION_DELIVERY_BACKOFF_MS = '10';
+// No real push provider is ever contacted from a test; suites that need one install a fake.
+process.env.PUSH_PROVIDER = 'none';

@@ -155,6 +155,29 @@ class UserRepository extends TenantRepository<UserEntity> {
     );
   }
 
+  /**
+   * Register a device for push.
+   *
+   * Pull-then-push rather than `$addToSet`: it both deduplicates (re-registering the same device
+   * is a no-op) and keeps the list bounded via `$slice`, which `$addToSet` cannot do. A user who
+   * reinstalls repeatedly therefore cannot grow this without limit.
+   */
+  async addPushToken(institutionId: IdLike, userId: IdLike, token: string, maxTokens = 10): Promise<void> {
+    const filter = { _id: requireObjectId(userId) };
+    await this.updateOneScoped(institutionId, filter, { $pull: { pushTokens: token } });
+    await this.updateOneScoped(institutionId, filter, {
+      $push: { pushTokens: { $each: [token], $slice: -maxTokens } },
+    });
+  }
+
+  async removePushToken(institutionId: IdLike, userId: IdLike, token: string): Promise<void> {
+    await this.updateOneScoped(
+      institutionId,
+      { _id: requireObjectId(userId) },
+      { $pull: { pushTokens: token } },
+    );
+  }
+
   async setMfaEnabled(institutionId: IdLike, userId: IdLike, enabled: boolean): Promise<void> {
     await this.updateOneScoped(institutionId, { _id: requireObjectId(userId) }, { $set: { mfaEnabled: enabled } });
   }

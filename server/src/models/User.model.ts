@@ -33,6 +33,15 @@ export interface UserAttrs {
    * layer so the document stays bounded.
    */
   knownDeviceHashes: string[];
+  /**
+   * Device tokens registered for push (Phase 3 Part B).
+   *
+   * Not a secret — a push token identifies a device to the push service, it does not
+   * authenticate anyone — but it is still per-user data, so it is only ever written by the
+   * owning user through /me/push-tokens and never returned in a DTO. An empty list simply
+   * means push is skipped for this user, which is a normal state, not a failure.
+   */
+  pushTokens: string[];
   deletedAt?: Date | null;
 }
 
@@ -59,6 +68,7 @@ const userSchema = new Schema<UserAttrs & Timestamps>(
     failedLoginAttempts: { type: Number, required: true, default: 0 },
     lockedUntil: { type: Date, default: null },
     knownDeviceHashes: { type: [String], required: true, default: [] },
+    pushTokens: { type: [String], required: true, default: [] },
     deletedAt: { type: Date, default: null },
   },
   { timestamps: true },

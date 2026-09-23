@@ -56,6 +56,15 @@ export type AssignRolesInput = z.infer<typeof assignRolesSchema>;
 
 export const userIdParamSchema = z.object({ id: objectIdSchema });
 
+/**
+ * A device push token. Bounded but otherwise opaque — its format belongs to the push provider,
+ * so validating its shape here would only break when the provider changes it.
+ */
+export const pushTokenSchema = z.object({
+  token: z.string().trim().min(10, 'That does not look like a device token').max(256),
+});
+export type PushTokenInput = z.infer<typeof pushTokenSchema>;
+
 /** QR verification: the scanner submits only the opaque token it read. */
 export const qrVerifySchema = z.object({ token: opaqueTokenSchema });
 

@@ -356,12 +356,29 @@ async function attachAdapter(server: Server): Promise<void> {
     const ready = await waitForRedisReady(redis);
     if (!ready) throw new Error('Redis did not become ready');
 
-    // The adapter needs its own pair of connections: a subscriber cannot run other commands.
-    const pubClient = redis.duplicate();
-    const subClient = redis.duplicate();
+    /**
+     * The adapter needs its own pair of connections: a subscriber cannot run other commands.
+     *
+     * Both options matter and both are overrides of what the shared client uses:
+     *  - `enableOfflineQueue: true` — the adapter issues `psubscribe` inside its constructor, so
+     *    a client that rejects commands while connecting takes the process down with an
+     *    unhandled rejection. The rate limiter wants fail-fast; a subscriber wants to wait.
+     *  - `maxRetriesPerRequest: null` — the documented setting for a subscriber connection,
+     *    which is long-lived rather than request-shaped.
+     *
+     * They are connected BEFORE the adapter is built, so the constructor's subscribe runs on a
+     * live socket rather than a hopeful one.
+     */
+    const pubClient = redis.duplicate({
+      enableOfflineQueue: true,
+      maxRetriesPerRequest: null,
+      lazyConnect: true,
+    });
+    const subClient = pubClient.duplicate();
     pubClient.on('error', (err: Error) => logger.warn({ err: err.message }, 'Realtime pub error'));
     subClient.on('error', (err: Error) => logger.warn({ err: err.message }, 'Realtime sub error'));
 
+    await Promise.all([pubClient.connect(), subClient.connect()]);
     server.adapter(createAdapter(pubClient, subClient));
     degraded = false;
     logger.info('Realtime adapter: redis (multi-instance fan-out)');

@@ -9,3 +9,5 @@
 export * from './common.js';
 export * from './auth.js';
 export * from './identity.js';
+export * from './academics.js';
+export * from './community.js';

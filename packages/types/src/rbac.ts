@@ -5,6 +5,11 @@
  * this map is the seed/baseline for that data and the contract clients use for UX-only gating.
  * The server always re-derives a principal's permissions from the database at authentication
  * time — a client must never be trusted to assert what it may do.
+ *
+ * A permission here is a *capability*, not a data grant. `attendance:read:scope`, for instance,
+ * is held by several roles, but each of them sees a different slice because the service narrows
+ * every query to the caller's academic scope. Widening a grant in this file can never widen the
+ * rows a role reaches.
  */
 import { ALL_PERMISSIONS, Permission, Role } from './roles.js';
 
@@ -20,48 +25,113 @@ const SELF_SERVICE: readonly Permission[] = [
   Permission.PROFILE_UPDATE_SELF,
 ];
 
-const STAFF_BASE: readonly Permission[] = [...SELF_SERVICE, Permission.USER_READ, Permission.PROFILE_READ];
+/** What any member of the campus community can see and do in shared spaces. */
+const COMMUNITY_BASE: readonly Permission[] = [
+  Permission.ANNOUNCEMENT_READ,
+  Permission.CLUB_READ,
+  Permission.EVENT_READ,
+  Permission.DISCUSSION_READ,
+  Permission.DISCUSSION_CREATE,
+  Permission.COMMENT_CREATE,
+  Permission.REPORT_CREATE,
+  Permission.NOTIFICATION_READ_SELF,
+  Permission.SEARCH_QUERY,
+];
+
+/** Academic reference data every member of the institution may look at. */
+const ACADEMIC_REFERENCE: readonly Permission[] = [
+  Permission.SUBJECT_READ,
+  Permission.CLASS_READ,
+  Permission.TIMETABLE_READ,
+];
+
+const STAFF_BASE: readonly Permission[] = [
+  ...SELF_SERVICE,
+  ...COMMUNITY_BASE,
+  ...ACADEMIC_REFERENCE,
+  Permission.USER_READ,
+  Permission.PROFILE_READ,
+];
+
+/** Teaching staff: mark attendance for their classes and review corrections on them. */
+const TEACHING: readonly Permission[] = [
+  ...STAFF_BASE,
+  Permission.QR_VERIFY,
+  Permission.ATTENDANCE_MARK,
+  Permission.ATTENDANCE_READ_SCOPE,
+  Permission.ATTENDANCE_CORRECTION_REVIEW,
+  Permission.ANNOUNCEMENT_CREATE,
+  Permission.EVENT_CREATE,
+  Permission.EVENT_CHECKIN,
+];
 
 export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
   [Role.STUDENT]: [
     ...SELF_SERVICE,
+    ...COMMUNITY_BASE,
+    ...ACADEMIC_REFERENCE,
     Permission.STUDENT_ID_READ_SELF,
     Permission.QR_ISSUE_SELF,
     Permission.ATTENDANCE_READ_SELF,
+    Permission.ATTENDANCE_CORRECTION_REQUEST,
+    Permission.CLUB_JOIN,
+    Permission.EVENT_REGISTER,
   ],
-  [Role.FACULTY]: [...STAFF_BASE, Permission.QR_VERIFY, Permission.ATTENDANCE_MARK, Permission.ANNOUNCEMENT_CREATE],
+  [Role.FACULTY]: [...TEACHING],
   [Role.CLASS_MENTOR]: [
-    ...STAFF_BASE,
-    Permission.QR_VERIFY,
-    Permission.ATTENDANCE_MARK,
-    Permission.ANNOUNCEMENT_CREATE,
+    ...TEACHING,
     Permission.GATEPASS_APPROVE,
     Permission.STUDENT_ID_READ,
   ],
   [Role.HOD]: [
-    ...STAFF_BASE,
-    Permission.QR_VERIFY,
-    Permission.ANNOUNCEMENT_CREATE,
+    ...TEACHING,
+    Permission.CLASS_MANAGE,
     Permission.GATEPASS_APPROVE,
     Permission.STUDENT_ID_READ,
+    Permission.MODERATION_REVIEW,
   ],
   [Role.PRINCIPAL]: [
     ...STAFF_BASE,
+    Permission.ATTENDANCE_READ_SCOPE,
     Permission.ANNOUNCEMENT_CREATE,
+    Permission.EVENT_CREATE,
     Permission.GATEPASS_APPROVE,
     Permission.STUDENT_ID_READ,
     Permission.AUDIT_READ,
     Permission.ROLE_READ,
+    Permission.MODERATION_REVIEW,
   ],
-  [Role.CLUB_ADMIN]: [...SELF_SERVICE, Permission.ANNOUNCEMENT_CREATE],
+  [Role.CLUB_ADMIN]: [
+    ...SELF_SERVICE,
+    ...COMMUNITY_BASE,
+    Permission.CLUB_JOIN,
+    Permission.CLUB_MANAGE,
+    Permission.ANNOUNCEMENT_CREATE,
+    Permission.EVENT_CREATE,
+    Permission.EVENT_REGISTER,
+    Permission.EVENT_CHECKIN,
+  ],
   [Role.HOSTEL_WARDEN]: [...STAFF_BASE, Permission.GATEPASS_APPROVE, Permission.QR_VERIFY],
-  [Role.MESS_INCHARGE]: [...SELF_SERVICE],
-  [Role.SECURITY_GUARD]: [...SELF_SERVICE, Permission.QR_VERIFY, Permission.STUDENT_ID_READ],
+  [Role.MESS_INCHARGE]: [...SELF_SERVICE, ...COMMUNITY_BASE],
+  [Role.SECURITY_GUARD]: [
+    ...SELF_SERVICE,
+    Permission.NOTIFICATION_READ_SELF,
+    Permission.QR_VERIFY,
+    Permission.STUDENT_ID_READ,
+  ],
   [Role.PLACEMENT_OFFICER]: [...STAFF_BASE],
   [Role.MEDICAL_STAFF]: [...STAFF_BASE],
   [Role.SYSTEM_ADMIN]: [...ALL_PERMISSIONS],
-  [Role.COMPANY_RECRUITER]: [...SELF_SERVICE],
-  [Role.ALUMNI]: [...SELF_SERVICE],
+  [Role.COMPANY_RECRUITER]: [...SELF_SERVICE, Permission.NOTIFICATION_READ_SELF],
+  [Role.ALUMNI]: [
+    ...SELF_SERVICE,
+    Permission.ANNOUNCEMENT_READ,
+    Permission.CLUB_READ,
+    Permission.EVENT_READ,
+    Permission.EVENT_REGISTER,
+    Permission.NOTIFICATION_READ_SELF,
+    Permission.SEARCH_QUERY,
+  ],
 };
 
 /** Resolve the union of permissions granted by a set of roles (deduplicated, stable order). */

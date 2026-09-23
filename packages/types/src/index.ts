@@ -9,3 +9,5 @@ export * from './roles.js';
 export * from './rbac.js';
 export * from './api.js';
 export * from './identity.js';
+export * from './academics.js';
+export * from './community.js';

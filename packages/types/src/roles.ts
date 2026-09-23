@@ -52,10 +52,41 @@ export const Permission = {
   STUDENT_ID_READ: 'studentid:read',
   QR_VERIFY: 'qr:verify',
 
-  // --- Later-phase anchors (seeded now, enforced by the phase that ships them)
+  // --- Academics (Phase 3) ---------------------------------------------------
+  SUBJECT_READ: 'subject:read',
+  CLASS_READ: 'class:read',
+  CLASS_MANAGE: 'class:manage',
+  TIMETABLE_READ: 'timetable:read',
   ATTENDANCE_READ_SELF: 'attendance:read:self',
   ATTENDANCE_MARK: 'attendance:mark',
+  /**
+   * Read attendance beyond your own. Holding it does NOT mean "read everyone": the service
+   * narrows every query to the caller's academic scope (own classes / section / department /
+   * college). The permission opens the door; the scope decides the room.
+   */
+  ATTENDANCE_READ_SCOPE: 'attendance:read:scope',
+  ATTENDANCE_CORRECTION_REQUEST: 'attendance:correction:request',
+  ATTENDANCE_CORRECTION_REVIEW: 'attendance:correction:review',
+
+  // --- Community (Phase 3 Part A) --------------------------------------------
+  ANNOUNCEMENT_READ: 'announcement:read',
   ANNOUNCEMENT_CREATE: 'announcement:create',
+  CLUB_READ: 'club:read',
+  CLUB_JOIN: 'club:join',
+  CLUB_MANAGE: 'club:manage',
+  EVENT_READ: 'event:read',
+  EVENT_CREATE: 'event:create',
+  EVENT_REGISTER: 'event:register',
+  EVENT_CHECKIN: 'event:checkin',
+  DISCUSSION_READ: 'discussion:read',
+  DISCUSSION_CREATE: 'discussion:create',
+  COMMENT_CREATE: 'comment:create',
+  REPORT_CREATE: 'report:create',
+  MODERATION_REVIEW: 'moderation:review',
+  NOTIFICATION_READ_SELF: 'notification:read:self',
+  SEARCH_QUERY: 'search:query',
+
+  // --- Later-phase anchors (seeded now, enforced by the phase that ships them)
   GATEPASS_APPROVE: 'gatepass:approve',
 } as const;
 

@@ -9,6 +9,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { UserDTO } from '@campusconnect/types';
 import { clearAccessToken, setAccessToken } from '../lib/tokenStore.js';
+import { closeSocket } from '../lib/socket.js';
 
 export type AuthStatus = 'booting' | 'authenticated' | 'anonymous';
 
@@ -35,6 +36,9 @@ const authSlice = createSlice({
     },
     sessionEnded(state) {
       clearAccessToken();
+      // The socket authenticated with the token that just went away; leaving it open would keep
+      // a signed-out tab receiving messages until the server happened to drop it.
+      closeSocket();
       state.status = 'anonymous';
       state.user = null;
     },

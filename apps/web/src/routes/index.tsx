@@ -25,6 +25,7 @@ import { ClubsPage } from '../features/clubs/ClubsPage.js';
 import { EventsPage } from '../features/events/EventsPage.js';
 import { DiscussionsPage } from '../features/discussions/DiscussionsPage.js';
 import { NotificationsPage } from '../features/notifications/NotificationsPage.js';
+import { ChatPage } from '../features/chat/ChatPage.js';
 import { SearchPage } from '../features/search/SearchPage.js';
 
 export function AppRoutes(): JSX.Element {
@@ -93,6 +94,8 @@ export function AppRoutes(): JSX.Element {
         <Route path="/events/:id" element={<EventsPage />} />
         <Route path="/discussions" element={<DiscussionsPage />} />
         <Route path="/discussions/:id" element={<DiscussionsPage />} />
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/chat/:id" element={<ChatPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/search" element={<SearchPage />} />
 

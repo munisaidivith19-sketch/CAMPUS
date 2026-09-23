@@ -32,6 +32,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/clubs', label: 'Clubs' },
   { to: '/events', label: 'Events' },
   { to: '/discussions', label: 'Discussions' },
+  { to: '/chat', label: 'Chat', permission: Permission.CHAT_READ },
   { to: '/search', label: 'Search' },
 ];
 

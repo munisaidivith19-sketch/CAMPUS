@@ -19,6 +19,7 @@ const TYPE_TONE = {
   EVENT: 'good',
   CLUB: 'neutral',
   ACADEMIC: 'neutral',
+  CHAT: 'info',
 } as const;
 
 export function NotificationsPage(): JSX.Element {

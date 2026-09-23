@@ -3,6 +3,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { useDispatch, useSelector } from 'react-redux';
 import { authApi } from './authApi.js';
 import { campusApi } from './campusApi.js';
+import { chatApi } from './chatApi.js';
 import { authReducer } from './authSlice.js';
 
 export const store = configureStore({
@@ -10,8 +11,10 @@ export const store = configureStore({
     auth: authReducer,
     [authApi.reducerPath]: authApi.reducer,
     [campusApi.reducerPath]: campusApi.reducer,
+    [chatApi.reducerPath]: chatApi.reducer,
   },
-  middleware: (getDefault) => getDefault().concat(authApi.middleware, campusApi.middleware),
+  middleware: (getDefault) =>
+    getDefault().concat(authApi.middleware, campusApi.middleware, chatApi.middleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;

@@ -15,6 +15,20 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
+    /**
+     * One worker, reused for every file.
+     *
+     * Suites already run sequentially (`fileParallelism: false`) because they share one test
+     * database, so a worker per file bought nothing — and churning workers was costing us runs:
+     * one would intermittently die with "Worker exited unexpectedly", taking that file's tests
+     * out of the run while vitest still printed a green summary with a smaller total. A pass
+     * that quietly covered less than it claims is worse than a failure.
+     *
+     * `dangerouslyIgnoreUnhandledErrors: false` is belt-and-braces: if a worker ever does die,
+     * the run fails loudly instead of under-reporting.
+     */
+    poolOptions: { threads: { singleThread: true } },
+    dangerouslyIgnoreUnhandledErrors: false,
     // The cross-cutting security suites live at the repo root (docs/deployment/TESTING.md).
     include: ['tests/**/*.test.ts', '../tests/security/**/*.test.ts'],
     setupFiles: ['tests/setup/testEnv.ts'],

@@ -9,7 +9,7 @@
  */
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import type { Role } from '@campusconnect/types';
+import type { Permission, Role } from '@campusconnect/types';
 import { useAuth } from '../hooks/useAuth.js';
 import { Spinner } from '../components/ui/Feedback.js';
 
@@ -34,6 +34,28 @@ export function RequireRole({ roles, children }: { roles: Role[]; children: Reac
   if (isBooting) return <Spinner label="Restoring your session…" />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (!hasRole(...roles)) return <Navigate to="/" replace />;
+
+  return <>{children}</>;
+}
+
+/**
+ * Hide a route the caller has no permission for.
+ *
+ * Same caveat as the others: this prevents a confusing dead end, it does not protect the data.
+ * The endpoints behind the page re-check the same permission and answer 403 regardless.
+ */
+export function RequirePermission({
+  permission,
+  children,
+}: {
+  permission: Permission;
+  children: ReactNode;
+}): JSX.Element {
+  const { isAuthenticated, isBooting, can } = useAuth();
+
+  if (isBooting) return <Spinner label="Restoring your session…" />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (!can(permission)) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 }

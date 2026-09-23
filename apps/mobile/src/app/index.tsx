@@ -8,25 +8,12 @@
 import { useEffect, useState } from 'react';
 import { registerRootComponent } from 'expo';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import type { UserDTO } from '@campusconnect/types';
 import { tokens } from '@campusconnect/ui/tokens';
 import { LoginScreen } from '../screens/LoginScreen.js';
+import { HomeScreen } from '../screens/HomeScreen.js';
 import { logout, restoreSession } from '../lib/api.js';
-
-function SignedIn({ user, onSignOut }: { user: UserDTO; onSignOut: () => void }): JSX.Element {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.kicker}>SIGNED IN</Text>
-      <Text style={styles.title}>{user.fullName}</Text>
-      <Text style={styles.body}>{user.email}</Text>
-      <Text style={styles.body}>{user.roles.join(', ')}</Text>
-      <Pressable style={styles.secondary} onPress={onSignOut} accessibilityRole="button">
-        <Text style={styles.secondaryText}>Sign out</Text>
-      </Pressable>
-    </View>
-  );
-}
 
 function App(): JSX.Element {
   const [user, setUser] = useState<UserDTO | null>(null);
@@ -52,7 +39,7 @@ function App(): JSX.Element {
     <>
       <StatusBar style="light" />
       {user ? (
-        <SignedIn
+        <HomeScreen
           user={user}
           onSignOut={() => {
             void (async () => {

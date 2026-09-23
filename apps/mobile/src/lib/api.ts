@@ -10,7 +10,13 @@
  * and is therefore not a secret.
  */
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import type { LoginResponseDTO, UserDTO } from '@campusconnect/types';
+import type {
+  AttendanceOverviewDTO,
+  LoginResponseDTO,
+  NotificationDTO,
+  TimetableDTO,
+  UserDTO,
+} from '@campusconnect/types';
 import {
   clearSession,
   getAccessToken,
@@ -117,6 +123,25 @@ export async function restoreSession(): Promise<UserDTO | null> {
   } catch {
     return null;
   }
+}
+
+// --- Phase 3 reads (student view) -------------------------------------------
+
+export async function fetchAttendanceSummary(): Promise<AttendanceOverviewDTO> {
+  const response = await api.get<{ data: AttendanceOverviewDTO }>('/attendance/summary');
+  return response.data.data;
+}
+
+export async function fetchTimetable(): Promise<TimetableDTO> {
+  const response = await api.get<{ data: TimetableDTO }>('/timetable');
+  return response.data.data;
+}
+
+export async function fetchNotifications(): Promise<NotificationDTO[]> {
+  const response = await api.get<{ data: NotificationDTO[] }>('/notifications', {
+    params: { limit: 20 },
+  });
+  return response.data.data;
 }
 
 export async function logout(): Promise<void> {

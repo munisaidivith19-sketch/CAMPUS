@@ -1,21 +1,48 @@
 /**
- * The minimal authenticated shell: a top bar with the signed-in identity and sign-out, plus the
- * page outlet.
+ * The authenticated shell: navigation, the unread-notification badge, and the page outlet.
  *
- * Deliberately not a dashboard — role dashboards and the full navigation arrive in Phase 3.
+ * Navigation is filtered by permission so people are not shown doors that will not open for
+ * them. That is a courtesy, not a control — the routes behind these links are guarded, and the
+ * API behind those refuses regardless of what the nav rendered.
  */
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Permission } from '@campusconnect/types';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useAppDispatch } from '../../store/index.js';
 import { sessionEnded } from '../../store/authSlice.js';
 import { useLogoutMutation } from '../../store/authApi.js';
+import { useGetNotificationsQuery } from '../../store/campusApi.js';
 import { Button } from '../ui/Button.js';
 
+interface NavItem {
+  to: string;
+  label: string;
+  /** When set, the link only renders for a caller holding this permission. */
+  permission?: Permission;
+  end?: boolean;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { to: '/', label: 'Dashboard', end: true },
+  { to: '/attendance', label: 'Attendance' },
+  { to: '/attendance/mark', label: 'Mark', permission: Permission.ATTENDANCE_MARK },
+  { to: '/attendance/corrections', label: 'Corrections', permission: Permission.ATTENDANCE_CORRECTION_REVIEW },
+  { to: '/timetable', label: 'Timetable' },
+  { to: '/announcements', label: 'Announcements' },
+  { to: '/clubs', label: 'Clubs' },
+  { to: '/events', label: 'Events' },
+  { to: '/discussions', label: 'Discussions' },
+  { to: '/search', label: 'Search' },
+];
+
 export function AppShell(): JSX.Element {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [logout, { isLoading }] = useLogoutMutation();
+  const notifications = useGetNotificationsQuery({ unreadOnly: true });
+
+  const unread = notifications.data?.length ?? 0;
 
   const signOut = async (): Promise<void> => {
     // Even if the server call fails, the local session must not linger.
@@ -33,39 +60,54 @@ export function AppShell(): JSX.Element {
       isActive ? 'bg-white/10 text-white' : 'text-neutral-300 hover:bg-white/5 hover:text-white',
     ].join(' ');
 
+  const visibleItems = NAV_ITEMS.filter((item) => !item.permission || can(item.permission));
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-900 via-neutral-950 to-neutral-900">
       <header className="glass sticky top-0 z-10 border-b border-white/10">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-4">
-          <div className="flex items-center gap-6">
+        <div className="mx-auto max-w-6xl px-6 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <span className="text-sm font-bold uppercase tracking-widest text-accent-400">
               CampusConnect
             </span>
-            <nav className="flex gap-1" aria-label="Main">
-              <NavLink to="/" end className={linkClass}>
-                Account
+
+            <div className="flex items-center gap-3">
+              <NavLink to="/notifications" className={linkClass}>
+                Notifications
+                {unread > 0 && (
+                  <span
+                    className="ml-2 rounded-full bg-brand-500 px-2 py-0.5 text-xs text-white"
+                    aria-label={`${unread} unread notifications`}
+                  >
+                    {unread}
+                  </span>
+                )}
+              </NavLink>
+
+              <NavLink to="/account" className={linkClass}>
+                {user?.fullName}
               </NavLink>
               <NavLink to="/security" className={linkClass}>
                 Security
               </NavLink>
-            </nav>
+
+              <Button variant="secondary" onClick={() => void signOut()} busy={isLoading}>
+                Sign out
+              </Button>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-neutral-300">
-              {user?.fullName}
-              <span className="ml-2 rounded-full bg-brand-500/20 px-2 py-0.5 text-xs text-brand-200">
-                {user?.primaryRole}
-              </span>
-            </span>
-            <Button variant="secondary" onClick={() => void signOut()} busy={isLoading}>
-              Sign out
-            </Button>
-          </div>
+          <nav className="mt-3 flex flex-wrap gap-1" aria-label="Main">
+            {visibleItems.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.end} className={linkClass}>
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-6 py-8">
+      <main className="mx-auto max-w-6xl px-6 py-8">
         <Outlet />
       </main>
     </div>

@@ -15,6 +15,7 @@ import {
 } from '@campusconnect/types';
 import type { InstitutionDocument } from '../models/Institution.model.js';
 import { ClubModel } from '../models/Club.model.js';
+import { UserModel } from '../models/User.model.js';
 import { attendanceRepository } from '../repositories/attendance.repository.js';
 import {
   classRepository,
@@ -50,15 +51,63 @@ interface SeedStudent {
 }
 
 const COHORT: SeedStudent[] = [
-  { localPart: 'asha.student', fullName: 'Asha Rao', rollNo: '1JN22CS001', interests: ['coding', 'robotics'], absenceEveryN: 12 },
-  { localPart: 'bhavana.s', fullName: 'Bhavana Shetty', rollNo: '1JN22CS002', interests: ['music', 'photography'], absenceEveryN: 10 },
-  { localPart: 'chirag.n', fullName: 'Chirag Nayak', rollNo: '1JN22CS003', interests: ['coding'], absenceEveryN: 9 },
-  { localPart: 'divya.k', fullName: 'Divya Kamath', rollNo: '1JN22CS004', interests: ['robotics', 'coding'], absenceEveryN: 11 },
+  {
+    localPart: 'asha.student',
+    fullName: 'Asha Rao',
+    rollNo: '1JN22CS001',
+    interests: ['coding', 'robotics'],
+    absenceEveryN: 12,
+  },
+  {
+    localPart: 'bhavana.s',
+    fullName: 'Bhavana Shetty',
+    rollNo: '1JN22CS002',
+    interests: ['music', 'photography'],
+    absenceEveryN: 10,
+  },
+  {
+    localPart: 'chirag.n',
+    fullName: 'Chirag Nayak',
+    rollNo: '1JN22CS003',
+    interests: ['coding'],
+    absenceEveryN: 9,
+  },
+  {
+    localPart: 'divya.k',
+    fullName: 'Divya Kamath',
+    rollNo: '1JN22CS004',
+    interests: ['robotics', 'coding'],
+    absenceEveryN: 11,
+  },
   // Deliberately below 75%: these two miss roughly every third period.
-  { localPart: 'esha.p', fullName: 'Esha Pai', rollNo: '1JN22CS005', interests: ['photography'], absenceEveryN: 3 },
-  { localPart: 'farhan.a', fullName: 'Farhan Ahmed', rollNo: '1JN22CS006', interests: ['music'], absenceEveryN: 3 },
-  { localPart: 'gita.r', fullName: 'Gita Rao', rollNo: '1JN22CS007', interests: ['coding', 'music'], absenceEveryN: 14 },
-  { localPart: 'harish.b', fullName: 'Harish Bhat', rollNo: '1JN22CS008', interests: ['robotics'], absenceEveryN: 13 },
+  {
+    localPart: 'esha.p',
+    fullName: 'Esha Pai',
+    rollNo: '1JN22CS005',
+    interests: ['photography'],
+    absenceEveryN: 3,
+  },
+  {
+    localPart: 'farhan.a',
+    fullName: 'Farhan Ahmed',
+    rollNo: '1JN22CS006',
+    interests: ['music'],
+    absenceEveryN: 3,
+  },
+  {
+    localPart: 'gita.r',
+    fullName: 'Gita Rao',
+    rollNo: '1JN22CS007',
+    interests: ['coding', 'music'],
+    absenceEveryN: 14,
+  },
+  {
+    localPart: 'harish.b',
+    fullName: 'Harish Bhat',
+    rollNo: '1JN22CS008',
+    interests: ['robotics'],
+    absenceEveryN: 13,
+  },
 ];
 
 const SUBJECTS = [
@@ -70,10 +119,30 @@ const SUBJECTS = [
 ];
 
 const CLUBS = [
-  { name: 'Coding Club', category: 'Technology', description: 'Weekly problem solving, hackathons and peer code review.', interests: ['coding', 'algorithms'] },
-  { name: 'Robotics Society', category: 'Technology', description: 'Build autonomous robots and compete in inter-college events.', interests: ['robotics', 'electronics'] },
-  { name: 'Music Club', category: 'Arts', description: 'Jam sessions, the college band and the annual concert.', interests: ['music'] },
-  { name: 'Photography Circle', category: 'Arts', description: 'Photo walks, darkroom workshops and the campus photo annual.', interests: ['photography'] },
+  {
+    name: 'Coding Club',
+    category: 'Technology',
+    description: 'Weekly problem solving, hackathons and peer code review.',
+    interests: ['coding', 'algorithms'],
+  },
+  {
+    name: 'Robotics Society',
+    category: 'Technology',
+    description: 'Build autonomous robots and compete in inter-college events.',
+    interests: ['robotics', 'electronics'],
+  },
+  {
+    name: 'Music Club',
+    category: 'Arts',
+    description: 'Jam sessions, the college band and the annual concert.',
+    interests: ['music'],
+  },
+  {
+    name: 'Photography Circle',
+    category: 'Arts',
+    description: 'Photo walks, darkroom workshops and the campus photo annual.',
+    interests: ['photography'],
+  },
 ];
 
 /** Weekday-only dates, walking backwards from today. */
@@ -84,7 +153,9 @@ function teachingDates(count: number): Date[] {
     const day = cursor.getUTCDay();
     // 0 = Sunday, 6 = Saturday.
     if (day !== 0 && day !== 6) {
-      dates.push(new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate())));
+      dates.push(
+        new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate())),
+      );
     }
     cursor.setUTCDate(cursor.getUTCDate() - 1);
   }
@@ -229,7 +300,10 @@ export async function seedAcademicsAndCommunity(institution: InstitutionDocument
   // --- Clubs ------------------------------------------------------------------
   const clubIds: string[] = [];
   for (const definition of CLUBS) {
-    let club = await ClubModel.findOne({ institutionId: requireObjectId(institutionId), name: definition.name }).exec();
+    let club = await ClubModel.findOne({
+      institutionId: requireObjectId(institutionId),
+      name: definition.name,
+    }).exec();
     club ??= await clubRepository.create({
       institutionId,
       name: definition.name,
@@ -242,17 +316,35 @@ export async function seedAcademicsAndCommunity(institution: InstitutionDocument
     clubIds.push(String(club._id));
   }
 
+  // The mentor administers these clubs, so they also hold the CLUB_ADMIN role — without it
+  // they could not approve members or open the club-admin dashboard (both need club:manage).
+  // This also makes the mentor a multi-role user, which the dashboard's role switcher shows.
+  if (mentor && !mentor.roles.includes(Role.CLUB_ADMIN)) {
+    await UserModel.updateOne(
+      { _id: mentor._id },
+      { $addToSet: { roles: Role.CLUB_ADMIN } },
+    ).exec();
+  }
+
   // Approved members for the first club; a pending request on the second.
   const codingClubId = clubIds[0];
   const roboticsClubId = clubIds[1];
 
   if (codingClubId) {
     for (const { userId, seed } of students.filter((s) => s.seed.interests.includes('coding'))) {
-      const existing = await clubMembershipRepository.findForUserAndClub(institutionId, codingClubId, userId);
+      const existing = await clubMembershipRepository.findForUserAndClub(
+        institutionId,
+        codingClubId,
+        userId,
+      );
       if (existing?.status === ClubMembershipStatus.APPROVED) continue;
 
       await clubMembershipRepository.requestJoin(institutionId, codingClubId, userId);
-      const membership = await clubMembershipRepository.findForUserAndClub(institutionId, codingClubId, userId);
+      const membership = await clubMembershipRepository.findForUserAndClub(
+        institutionId,
+        codingClubId,
+        userId,
+      );
       if (membership && mentor) {
         await clubMembershipRepository.decide(
           institutionId,
@@ -269,7 +361,11 @@ export async function seedAcademicsAndCommunity(institution: InstitutionDocument
   // A pending request so the approval flow has something to act on.
   const pendingStudent = students.find((s) => s.seed.interests.includes('robotics'));
   if (roboticsClubId && pendingStudent) {
-    await clubMembershipRepository.requestJoin(institutionId, roboticsClubId, pendingStudent.userId);
+    await clubMembershipRepository.requestJoin(
+      institutionId,
+      roboticsClubId,
+      pendingStudent.userId,
+    );
   }
 
   // --- Events ------------------------------------------------------------------
@@ -312,7 +408,9 @@ export async function seedAcademicsAndCommunity(institution: InstitutionDocument
   ];
 
   for (const definition of eventDefinitions) {
-    const existing = await eventRepository.findOneScoped(institutionId, { title: definition.title });
+    const existing = await eventRepository.findOneScoped(institutionId, {
+      title: definition.title,
+    });
     if (existing) continue;
     if (!hod) break;
 
@@ -335,7 +433,11 @@ export async function seedAcademicsAndCommunity(institution: InstitutionDocument
     for (const { userId } of students.slice(0, 3)) {
       const reserved = await eventRepository.reserveSeat(institutionId, String(event._id));
       if (!reserved) break;
-      await eventRegistrationRepository.create({ institutionId, eventId: String(event._id), userId });
+      await eventRegistrationRepository.create({
+        institutionId,
+        eventId: String(event._id),
+        userId,
+      });
     }
   }
 
@@ -393,7 +495,9 @@ export async function seedAcademicsAndCommunity(institution: InstitutionDocument
   ];
 
   for (const [index, definition] of discussionDefinitions.entries()) {
-    const existing = await discussionRepository.findOneScoped(institutionId, { title: definition.title });
+    const existing = await discussionRepository.findOneScoped(institutionId, {
+      title: definition.title,
+    });
     if (existing) continue;
 
     const author = students[index]?.userId;

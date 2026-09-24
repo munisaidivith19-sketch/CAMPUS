@@ -28,6 +28,7 @@
       "@campusconnect/types": ["packages/types/src"],
       "@campusconnect/validation": ["packages/validation/src"],
       "@campusconnect/ui": ["packages/ui/src"],
+      "@campusconnect/ui/tokens": ["packages/ui/src/tokens.ts"],
       "@campusconnect/config": ["packages/config/src"],
       "@campusconnect/security": ["packages/security/src"]
     }

@@ -1,9 +1,13 @@
 /**
  * Tailwind consumes the shared design tokens so web + mobile share one visual language.
  * See packages/ui/src/tokens.ts and docs/product/DESIGN_SYSTEM.md.
+ *
+ * The tokens are imported from source by path: Tailwind loads this file through its own
+ * loader, which resolves `@campusconnect/ui/tokens` to the package's built `dist/` and would
+ * make `vite dev` depend on a prior package build.
  */
 import type { Config } from 'tailwindcss';
-import { tokens } from '@campusconnect/ui/tokens';
+import { tokens } from '../../packages/ui/src/tokens';
 
 const config: Config = {
   darkMode: 'class',

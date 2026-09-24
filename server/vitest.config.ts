@@ -10,9 +10,24 @@
  *
  * `fileParallelism: false` keeps suites from racing on that shared database.
  */
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
+/**
+ * The shared packages publish built JS from `dist/` (what `node dist/index.js` loads). Tests
+ * resolve their TypeScript source instead, so a run never depends on a stale or missing build.
+ */
+const packagesRoot = fileURLToPath(new URL('../packages/', import.meta.url));
+const workspaceAliases = [
+  { find: /^@campusconnect\/ui\/tokens$/, replacement: `${packagesRoot}ui/src/tokens.ts` },
+  {
+    find: /^@campusconnect\/(types|config|security|validation|ui)$/,
+    replacement: `${packagesRoot}$1/src/index.ts`,
+  },
+];
+
 export default defineConfig({
+  resolve: { alias: workspaceAliases },
   test: {
     environment: 'node',
     /**

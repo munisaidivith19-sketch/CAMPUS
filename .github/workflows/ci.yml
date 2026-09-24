@@ -19,6 +19,9 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # Packages first, then server and web — the server's production build compiles
+      # against the packages' emitted dist/ (see scripts in the root package.json).
+      - run: npm run build
       - run: npm run test
       - run: npm run format:check
 

@@ -64,7 +64,8 @@ export const chatApi = createApi({
 
     createChat: builder.mutation<
       ChatDetailDTO,
-      { type: typeof ChatType.DIRECT; userId: string } | { type: typeof ChatType.GROUP; name: string; memberIds: string[] }
+      | { type: typeof ChatType.DIRECT; userId: string }
+      | { type: typeof ChatType.GROUP; name: string; memberIds: string[] }
     >({
       query: (body) => ({ url: '/chats', method: 'POST', data: body }),
       invalidatesTags: ['Chats'],
@@ -73,7 +74,7 @@ export const chatApi = createApi({
     /** The HTTP fallback. The socket path is preferred; this is what a dead socket falls back to. */
     sendMessage: builder.mutation<
       ChatMessageDTO,
-      { chatId: string; body: string; clientMessageId: string }
+      { chatId: string; body: string; clientMessageId: string; attachmentFileIds?: string[] }
     >({
       query: ({ chatId, ...data }) => ({
         url: `/chats/${chatId}/messages`,
@@ -83,7 +84,10 @@ export const chatApi = createApi({
       invalidatesTags: ['Chats'],
     }),
 
-    editMessage: builder.mutation<ChatMessageDTO, { chatId: string; messageId: string; body: string }>({
+    editMessage: builder.mutation<
+      ChatMessageDTO,
+      { chatId: string; messageId: string; body: string }
+    >({
       query: ({ chatId, messageId, body }) => ({
         url: `/chats/${chatId}/messages/${messageId}`,
         method: 'PATCH',
@@ -98,7 +102,10 @@ export const chatApi = createApi({
       }),
     }),
 
-    markChatRead: builder.mutation<{ status: string }, { chatId: string; lastReadMessageId: string }>({
+    markChatRead: builder.mutation<
+      { status: string },
+      { chatId: string; lastReadMessageId: string }
+    >({
       query: ({ chatId, lastReadMessageId }) => ({
         url: `/chats/${chatId}/read`,
         method: 'POST',
@@ -108,7 +115,11 @@ export const chatApi = createApi({
     }),
 
     muteChat: builder.mutation<{ status: string }, { chatId: string; muted: boolean }>({
-      query: ({ chatId, muted }) => ({ url: `/chats/${chatId}/mute`, method: 'PATCH', data: { muted } }),
+      query: ({ chatId, muted }) => ({
+        url: `/chats/${chatId}/mute`,
+        method: 'PATCH',
+        data: { muted },
+      }),
       invalidatesTags: ['Chats'],
     }),
 

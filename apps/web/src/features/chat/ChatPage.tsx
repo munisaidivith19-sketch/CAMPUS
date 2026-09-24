@@ -30,11 +30,14 @@ import { PageHeader, SectionCard } from '../../components/ui/DataDisplay.js';
 import { Alert, EmptyState, ErrorState, SkeletonRows } from '../../components/ui/Feedback.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
+import { UPLOAD } from '@campusconnect/config';
+import { AttachmentList, AttachmentPicker, useAttachmentUploads } from '../files/Attachments.js';
 
 /** A message the user has sent that the server has not yet confirmed. */
 interface PendingMessage {
   clientMessageId: string;
   body: string;
+  attachmentCount: number;
   failed: boolean;
 }
 
@@ -68,7 +71,9 @@ function ChatList({
             aria-current={chat.id === activeId ? 'true' : undefined}
             className={[
               'flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition',
-              chat.id === activeId ? 'bg-white/10 text-neutral-100' : 'text-neutral-300 hover:bg-white/5',
+              chat.id === activeId
+                ? 'bg-white/10 text-neutral-100'
+                : 'text-neutral-300 hover:bg-white/5',
             ].join(' ')}
           >
             <span className="min-w-0">
@@ -190,7 +195,9 @@ function NewChatDialog({ onCreated }: { onCreated: (chatId: string) => void }): 
                 variant="ghost"
                 onClick={() =>
                   setSelected((current) =>
-                    current.some((item) => item.userId === user.userId) ? current : [...current, user],
+                    current.some((item) => item.userId === user.userId)
+                      ? current
+                      : [...current, user],
                   )
                 }
               >
@@ -204,7 +211,9 @@ function NewChatDialog({ onCreated }: { onCreated: (chatId: string) => void }): 
       {mode === 'GROUP' && (
         <form onSubmit={(event) => void createGroup(event)} className="space-y-2">
           <p className="text-xs text-neutral-400">
-            {selected.length === 0 ? 'No members added yet.' : selected.map((u) => u.fullName).join(', ')}
+            {selected.length === 0
+              ? 'No members added yet.'
+              : selected.map((u) => u.fullName).join(', ')}
           </p>
           <div className="flex gap-2">
             <Button type="submit" disabled={isLoading || groupName.trim().length === 0}>
@@ -242,9 +251,7 @@ function MessageRow({
   onDelete: (message: ChatMessageDTO) => void;
 }): JSX.Element {
   if (message.type === 'SYSTEM') {
-    return (
-      <li className="py-1 text-center text-xs text-neutral-500">{message.body}</li>
-    );
+    return <li className="py-1 text-center text-xs text-neutral-500">{message.body}</li>;
   }
 
   return (
@@ -264,8 +271,11 @@ function MessageRow({
         {message.deleted ? (
           <p className="italic text-neutral-500">This message was deleted.</p>
         ) : (
-          // Plain text, escaped by React. Never dangerouslySetInnerHTML.
-          <p className="whitespace-pre-wrap break-words">{message.body}</p>
+          <>
+            {/* Plain text, escaped by React. Never dangerouslySetInnerHTML. */}
+            {message.body && <p className="whitespace-pre-wrap break-words">{message.body}</p>}
+            <AttachmentList attachments={message.attachments} />
+          </>
         )}
 
         <p className="mt-1 flex items-center gap-2 text-[11px] text-neutral-500">
@@ -273,16 +283,28 @@ function MessageRow({
           {message.editedAt && <span>edited</span>}
           {!message.deleted && mine && (
             <>
-              <button type="button" className="underline hover:text-neutral-300" onClick={() => onEdit(message)}>
+              <button
+                type="button"
+                className="underline hover:text-neutral-300"
+                onClick={() => onEdit(message)}
+              >
                 Edit
               </button>
-              <button type="button" className="underline hover:text-neutral-300" onClick={() => onDelete(message)}>
+              <button
+                type="button"
+                className="underline hover:text-neutral-300"
+                onClick={() => onDelete(message)}
+              >
                 Delete
               </button>
             </>
           )}
           {!message.deleted && !mine && canModerate && (
-            <button type="button" className="underline hover:text-neutral-300" onClick={() => onDelete(message)}>
+            <button
+              type="button"
+              className="underline hover:text-neutral-300"
+              onClick={() => onDelete(message)}
+            >
               Remove
             </button>
           )}
@@ -312,6 +334,7 @@ function Conversation({ chatId }: { chatId: string }): JSX.Element {
   const [addMembers] = useAddChatMembersMutation();
 
   const [draft, setDraft] = useState('');
+  const attachments = useAttachmentUploads(UPLOAD.CHAT_MAX_ATTACHMENTS);
   const [pending, setPending] = useState<PendingMessage[]>([]);
   const [typingUsers, setTypingUsers] = useState<Record<string, number>>({});
   const [notice, setNotice] = useState<string | null>(null);
@@ -358,6 +381,7 @@ function Conversation({ chatId }: { chatId: string }): JSX.Element {
             if (message) {
               message.deleted = true;
               message.body = null;
+              message.attachments = [];
             }
           }),
         );
@@ -390,20 +414,35 @@ function Conversation({ chatId }: { chatId: string }): JSX.Element {
   const submit = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
     const body = draft.trim();
-    if (body.length === 0) return;
+    const attachmentFileIds = attachments.readyIds;
+    if ((body.length === 0 && attachmentFileIds.length === 0) || attachments.busy) return;
 
     const clientMessageId = newClientMessageId();
     setDraft('');
+    attachments.reset();
     // Optimistic: shown immediately, keyed by the id the server will echo back.
-    setPending((current) => [...current, { clientMessageId, body, failed: false }]);
+    setPending((current) => [
+      ...current,
+      { clientMessageId, body, attachmentCount: attachmentFileIds.length, failed: false },
+    ]);
 
-    const ack = await emitWithAck<{ ok: boolean }>('message:send', { chatId, body, clientMessageId });
+    const ack = await emitWithAck<{ ok: boolean }>('message:send', {
+      chatId,
+      body,
+      clientMessageId,
+      attachmentFileIds,
+    });
     if (ack?.ok) return;
 
     // The socket was down or did not answer. The REST call carries the SAME clientMessageId, so
     // if the socket send actually landed this does not create a second message.
     try {
-      const message = await sendMessage({ chatId, body, clientMessageId }).unwrap();
+      const message = await sendMessage({
+        chatId,
+        body,
+        clientMessageId,
+        attachmentFileIds,
+      }).unwrap();
       upsertMessage(message);
       setPending((current) => current.filter((item) => item.clientMessageId !== clientMessageId));
     } catch {
@@ -437,7 +476,12 @@ function Conversation({ chatId }: { chatId: string }): JSX.Element {
 
   if (messages.isLoading || chat.isLoading) return <SkeletonRows rows={6} />;
   if (messages.isError) {
-    return <ErrorState message="This conversation could not be loaded." onRetry={() => void messages.refetch()} />;
+    return (
+      <ErrorState
+        message="This conversation could not be loaded."
+        onRetry={() => void messages.refetch()}
+      />
+    );
   }
 
   const items = messages.data?.items ?? [];
@@ -463,7 +507,8 @@ function Conversation({ chatId }: { chatId: string }): JSX.Element {
           </Button>
           {chat.data?.type === ChatType.GROUP && (
             <>
-              {(chat.data.myRole === ChatMemberRole.OWNER || chat.data.myRole === ChatMemberRole.ADMIN) && (
+              {(chat.data.myRole === ChatMemberRole.OWNER ||
+                chat.data.myRole === ChatMemberRole.ADMIN) && (
                 <Button
                   variant="ghost"
                   onClick={() => {
@@ -514,6 +559,11 @@ function Conversation({ chatId }: { chatId: string }): JSX.Element {
             <li key={item.clientMessageId} className="flex justify-end">
               <div className="max-w-[min(38rem,80%)] rounded-2xl bg-brand-500/10 px-3.5 py-2 text-sm text-neutral-300">
                 <p className="whitespace-pre-wrap break-words">{item.body}</p>
+                {item.attachmentCount > 0 && (
+                  <p className="text-xs text-neutral-400">
+                    {item.attachmentCount} attachment{item.attachmentCount === 1 ? '' : 's'}
+                  </p>
+                )}
                 <p className="mt-1 text-[11px] text-neutral-500">
                   {item.failed ? 'Not sent — check your connection' : 'Sending…'}
                 </p>
@@ -527,21 +577,36 @@ function Conversation({ chatId }: { chatId: string }): JSX.Element {
         {typingNames.length > 0 && `${typingNames.join(', ')} is typing…`}
       </p>
 
-      <form onSubmit={(event) => void submit(event)} className="flex items-end gap-2 border-t border-white/10 pt-3">
-        <div className="flex-1">
-          <Input
-            label="Message"
-            value={draft}
-            maxLength={4000}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              void emitWithAck('typing', { chatId, typing: event.target.value.length > 0 });
-            }}
-          />
+      <form
+        onSubmit={(event) => void submit(event)}
+        className="space-y-2 border-t border-white/10 pt-3"
+      >
+        <AttachmentPicker
+          uploads={attachments.uploads}
+          onAdd={attachments.add}
+          onRemove={attachments.remove}
+        />
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Input
+              label="Message"
+              value={draft}
+              maxLength={4000}
+              onChange={(event) => {
+                setDraft(event.target.value);
+                void emitWithAck('typing', { chatId, typing: event.target.value.length > 0 });
+              }}
+            />
+          </div>
+          <Button
+            type="submit"
+            disabled={
+              attachments.busy || (draft.trim().length === 0 && attachments.readyIds.length === 0)
+            }
+          >
+            {attachments.busy ? 'Uploading…' : 'Send'}
+          </Button>
         </div>
-        <Button type="submit" disabled={draft.trim().length === 0}>
-          Send
-        </Button>
       </form>
     </div>
   );
@@ -577,10 +642,16 @@ export function ChatPage(): JSX.Element {
             <NewChatDialog onCreated={setActiveId} />
             {chats.isLoading && <SkeletonRows rows={4} />}
             {chats.isError && (
-              <ErrorState message="Your conversations could not be loaded." onRetry={() => void chats.refetch()} />
+              <ErrorState
+                message="Your conversations could not be loaded."
+                onRetry={() => void chats.refetch()}
+              />
             )}
             {chats.data?.length === 0 && (
-              <EmptyState title="No conversations yet" description="Start one with someone in your college." />
+              <EmptyState
+                title="No conversations yet"
+                description="Start one with someone in your college."
+              />
             )}
             {chats.data && chats.data.length > 0 && (
               <ChatList chats={chats.data} activeId={active} onSelect={setActiveId} />
@@ -593,7 +664,10 @@ export function ChatPage(): JSX.Element {
             {active ? (
               <Conversation key={active} chatId={active} />
             ) : (
-              <EmptyState title="Nothing selected" description="Pick a conversation from the list." />
+              <EmptyState
+                title="Nothing selected"
+                description="Pick a conversation from the list."
+              />
             )}
           </div>
         </SectionCard>

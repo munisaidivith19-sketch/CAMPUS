@@ -36,8 +36,10 @@ coverage/
 .DS_Store
 Thumbs.db
 
-# Local storage (dev file uploads) — never commit uploaded content
-storage/
+# Local storage (dev file uploads) — never commit uploaded content. Anchored to the repo root
+# so it matches the upload root (STORAGE_LOCAL_ROOT=./storage) and not source folders that
+# happen to be called `storage` (server/src/infra/storage is code).
+/storage/
 uploads/
 tmp/
 

@@ -23,6 +23,12 @@ import type {
   DiscussionDTO,
   EventDTO,
   EventRegistrationDTO,
+  ClubAdminDashboardDTO,
+  FacultyDashboardDTO,
+  HodDashboardDTO,
+  MentorDashboardDTO,
+  PrincipalDashboardDTO,
+  StudentDashboardDTO,
   ModerationActionDTO,
   ModerationQueueItemDTO,
   NotificationDTO,
@@ -79,6 +85,7 @@ export const campusApi = createApi({
     'Comments',
     'Notifications',
     'Moderation',
+    'Dashboards',
   ],
   endpoints: (builder) => ({
     // --- Academics -----------------------------------------------------------
@@ -265,6 +272,32 @@ export const campusApi = createApi({
       invalidatesTags: ['Discussions', 'Comments', 'Moderation'],
     }),
 
+    // --- Role dashboards (each scope-narrowed by the server) --------------------
+    getStudentDashboard: builder.query<StudentDashboardDTO, void>({
+      query: () => ({ url: '/dashboards/student' }),
+      providesTags: ['Dashboards'],
+    }),
+    getFacultyDashboard: builder.query<FacultyDashboardDTO, void>({
+      query: () => ({ url: '/dashboards/faculty' }),
+      providesTags: ['Dashboards'],
+    }),
+    getMentorDashboard: builder.query<MentorDashboardDTO, void>({
+      query: () => ({ url: '/dashboards/mentor' }),
+      providesTags: ['Dashboards'],
+    }),
+    getHodDashboard: builder.query<HodDashboardDTO, void>({
+      query: () => ({ url: '/dashboards/hod' }),
+      providesTags: ['Dashboards'],
+    }),
+    getPrincipalDashboard: builder.query<PrincipalDashboardDTO, void>({
+      query: () => ({ url: '/dashboards/principal' }),
+      providesTags: ['Dashboards'],
+    }),
+    getClubAdminDashboard: builder.query<ClubAdminDashboardDTO, void>({
+      query: () => ({ url: '/dashboards/club-admin' }),
+      providesTags: ['Dashboards'],
+    }),
+
     // --- Moderation queue (scope-narrowed by the server) -----------------------
     getModerationReports: builder.query<
       ModerationQueueItemDTO[],
@@ -345,6 +378,12 @@ export const {
   useToggleReactionMutation,
   useReportContentMutation,
   useGetModerationReportsQuery,
+  useGetStudentDashboardQuery,
+  useGetFacultyDashboardQuery,
+  useGetMentorDashboardQuery,
+  useGetHodDashboardQuery,
+  useGetPrincipalDashboardQuery,
+  useGetClubAdminDashboardQuery,
   useGetModerationHistoryQuery,
   useDecideReportMutation,
   useLeaveClubMutation,

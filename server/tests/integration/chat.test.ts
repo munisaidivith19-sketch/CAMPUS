@@ -95,8 +95,14 @@ describe('direct messages', () => {
     // The unique index decides this, not a check-then-create — both requests are in flight
     // before either has written anything.
     const [a, b] = await Promise.all([
-      api().post('/api/v1/chats').set(...auth(alice)).send({ type: ChatType.DIRECT, userId: bob.user.id }),
-      api().post('/api/v1/chats').set(...auth(bob)).send({ type: ChatType.DIRECT, userId: alice.user.id }),
+      api()
+        .post('/api/v1/chats')
+        .set(...auth(alice))
+        .send({ type: ChatType.DIRECT, userId: bob.user.id }),
+      api()
+        .post('/api/v1/chats')
+        .set(...auth(bob))
+        .send({ type: ChatType.DIRECT, userId: alice.user.id }),
     ]);
 
     expect(a.status).toBe(201);
@@ -106,7 +112,9 @@ describe('direct messages', () => {
     const list = await api()
       .get('/api/v1/chats')
       .set(...auth(alice));
-    expect(list.body.data.filter((chat: { type: string }) => chat.type === ChatType.DIRECT)).toHaveLength(1);
+    expect(
+      list.body.data.filter((chat: { type: string }) => chat.type === ChatType.DIRECT),
+    ).toHaveLength(1);
   });
 
   it('refuses a conversation with yourself', async () => {
@@ -176,8 +184,20 @@ describe('group chats', () => {
       .send({ type: ChatType.GROUP, name: 'Leavers', memberIds: [bob.user.id] });
     const chatId = created.body.data.id as string;
 
-    expect((await api().post(`/api/v1/chats/${chatId}/leave`).set(...auth(bob))).status).toBe(200);
-    expect((await api().get(`/api/v1/chats/${chatId}`).set(...auth(bob))).status).toBe(404);
+    expect(
+      (
+        await api()
+          .post(`/api/v1/chats/${chatId}/leave`)
+          .set(...auth(bob))
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await api()
+          .get(`/api/v1/chats/${chatId}`)
+          .set(...auth(bob))
+      ).status,
+    ).toBe(404);
   });
 
   it('will not let you leave a direct message', async () => {
@@ -296,7 +316,11 @@ describe('messages', () => {
     const messageId = await send(alice, chatId, 'Please forget this');
 
     expect(
-      (await api().delete(`/api/v1/chats/${chatId}/messages/${messageId}`).set(...auth(alice))).status,
+      (
+        await api()
+          .delete(`/api/v1/chats/${chatId}/messages/${messageId}`)
+          .set(...auth(alice))
+      ).status,
     ).toBe(200);
 
     for (const reader of [alice, bob]) {
@@ -311,14 +335,14 @@ describe('messages', () => {
     }
   });
 
-  it('rejects an attachment until file sharing ships', async () => {
+  it('rejects attachment references that are not file ids', async () => {
     const chatId = await openDirect(alice, bob);
     const response = await api()
       .post(`/api/v1/chats/${chatId}/messages`)
       .set(...auth(alice))
-      .send({ body: 'See attached', clientMessageId: clientId(), attachmentRef: 'file-1' });
+      .send({ body: 'See attached', clientMessageId: clientId(), attachmentFileIds: ['file-1'] });
 
-    // Rejected rather than silently ignored: the field is Part C-3.
+    // Attachments are uploaded files (Part C-3), referenced by id and nothing else.
     expect(response.status).toBe(422);
   });
 
@@ -359,9 +383,15 @@ describe('unread counts and the read marker', () => {
     const first = await send(alice, chatId, 'One');
     const second = await send(alice, chatId, 'Two');
 
-    await api().post(`/api/v1/chats/${chatId}/read`).set(...auth(bob)).send({ lastReadMessageId: second });
+    await api()
+      .post(`/api/v1/chats/${chatId}/read`)
+      .set(...auth(bob))
+      .send({ lastReadMessageId: second });
     // Replaying an older marker must not resurrect unread messages.
-    await api().post(`/api/v1/chats/${chatId}/read`).set(...auth(bob)).send({ lastReadMessageId: first });
+    await api()
+      .post(`/api/v1/chats/${chatId}/read`)
+      .set(...auth(bob))
+      .send({ lastReadMessageId: first });
 
     const list = await api()
       .get('/api/v1/chats')
@@ -378,11 +408,15 @@ describe('unread counts and the read marker', () => {
       .send({ muted: true });
     expect(muted.body.data.status).toBe('MUTED');
 
-    const bobList = await api().get('/api/v1/chats').set(...auth(bob));
+    const bobList = await api()
+      .get('/api/v1/chats')
+      .set(...auth(bob));
     expect(bobList.body.data[0].muted).toBe(true);
 
     // Muting is personal: Alice's view of the same chat is unchanged.
-    const aliceList = await api().get('/api/v1/chats').set(...auth(alice));
+    const aliceList = await api()
+      .get('/api/v1/chats')
+      .set(...auth(alice));
     expect(aliceList.body.data[0].muted).toBe(false);
   });
 });
@@ -402,8 +436,20 @@ describe('the user picker', () => {
 
   it('refuses to act as a directory dump', async () => {
     // No query, or a one-character one, is rejected rather than answered with everyone.
-    expect((await api().get('/api/v1/chats/users').set(...auth(alice))).status).toBe(422);
-    expect((await api().get('/api/v1/chats/users?q=a').set(...auth(alice))).status).toBe(422);
+    expect(
+      (
+        await api()
+          .get('/api/v1/chats/users')
+          .set(...auth(alice))
+      ).status,
+    ).toBe(422);
+    expect(
+      (
+        await api()
+          .get('/api/v1/chats/users?q=a')
+          .set(...auth(alice))
+      ).status,
+    ).toBe(422);
   });
 
   it('caps how much one search returns', async () => {
@@ -418,7 +464,11 @@ describe('derived class chats', () => {
   it('appears for classmates without anyone creating it', async () => {
     const departmentId = await createDepartment(tenant, 'ECE', 'Electronics');
     const { createSubjectAndClass, createFaculty } = await import('../helpers/academicFixtures.js');
-    const faculty = await createFaculty(tenant, { localPart: 'teacher', roles: [Role.FACULTY], departmentId });
+    const faculty = await createFaculty(tenant, {
+      localPart: 'teacher',
+      roles: [Role.FACULTY],
+      departmentId,
+    });
     await createSubjectAndClass(tenant, {
       code: 'CS500',
       departmentId,

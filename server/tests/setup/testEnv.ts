@@ -8,6 +8,9 @@
  *    what would have been sent without needing a live SMTP server.
  *  - `MONGODB_DB_NAME` points at a throwaway database so a test run can never touch dev data.
  */
+import os from 'node:os';
+import path from 'node:path';
+
 process.env.NODE_ENV = 'test';
 process.env.MONGODB_DB_NAME = process.env.TEST_DB_NAME ?? 'campusconnect_test';
 // 'fatal' is the quietest level the config schema accepts — keeps suite output readable.
@@ -32,3 +35,15 @@ process.env.PUSH_PROVIDER = 'none';
 // No live Redis either. An empty value is still "set", so dotenv will not put .env's URL back,
 // and the rate limiters fall back to their in-process store — which is what the suite asserts on.
 process.env.REDIS_URL = '';
+
+// File bytes go to a throwaway directory per run, never the developer's storage root. Limits
+// are shrunk so the size, quota and rate-limit paths can be exercised with small fixtures; the
+// scanner is off unless a suite installs one (see file.service `setScannerForTesting`).
+process.env.STORAGE_DRIVER = 'local';
+process.env.STORAGE_LOCAL_ROOT = path.join(os.tmpdir(), `cc-test-storage-${process.pid}`);
+process.env.MAX_UPLOAD_BYTES = String(1024 * 1024);
+process.env.USER_UPLOAD_QUOTA_BYTES = String(3 * 1024 * 1024);
+process.env.UPLOAD_RATE_PER_HOUR = '25';
+process.env.CLAMAV_ENABLED = 'false';
+process.env.FILE_SIGNING_SECRET = 'test-file-signing-secret-long-enough-000000';
+process.env.FILE_ORPHAN_TTL_HOURS = '24';

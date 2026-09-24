@@ -187,7 +187,7 @@ describe('upload pipeline', () => {
   });
 
   it('sanitizes the display name', async () => {
-    const response = await uploadRequest(alice, pdfBytes(), '../../x/evil‮fdp.pdf', MIME.pdf);
+    const response = await uploadRequest(alice, pdfBytes(), '../../x/evil\u202efdp.pdf', MIME.pdf);
     // The bidi override is gone and the path is gone; what remains ends in the real extension.
     expect(response.status).toBe(201);
     expect(response.body.data.name).toBe('evilfdp.pdf');

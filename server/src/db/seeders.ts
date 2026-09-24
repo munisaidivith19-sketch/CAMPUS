@@ -11,7 +11,10 @@ import { InstitutionModel, type InstitutionDocument } from '../models/Institutio
 import { DepartmentModel, type DepartmentDocument } from '../models/Department.model.js';
 import { UserModel, type UserDocument } from '../models/User.model.js';
 import { roleRepository, permissionRepository } from '../repositories/rbac.repository.js';
-import { studentProfileRepository, facultyProfileRepository } from '../repositories/profile.repository.js';
+import {
+  studentProfileRepository,
+  facultyProfileRepository,
+} from '../repositories/profile.repository.js';
 import { studentIdRepository } from '../repositories/studentId.repository.js';
 import { PERMISSION_CATALOG } from '../policies/permissionCatalog.js';
 import { hashPassword } from '../services/password.service.js';
@@ -59,7 +62,10 @@ export async function ensureDepartment(
   name: string,
   code: string,
 ): Promise<DepartmentDocument> {
-  const existing = await DepartmentModel.findOne({ institutionId, code: code.toUpperCase() }).exec();
+  const existing = await DepartmentModel.findOne({
+    institutionId,
+    code: code.toUpperCase(),
+  }).exec();
   if (existing) return existing;
   return DepartmentModel.create({ institutionId, name, code: code.toUpperCase() });
 }
@@ -121,12 +127,42 @@ export async function seedDevelopmentData(domain = 'jnn.edu.in'): Promise<SeedRe
   await ensureDepartment(institutionId, 'Mechanical Engineering', 'MECH');
 
   const accounts: Array<{ role: Role; email: string; password: string; fullName: string }> = [
-    { role: Role.STUDENT, email: `asha.student@${domain}`, password: 'StudentPass#2026', fullName: 'Asha Rao' },
-    { role: Role.FACULTY, email: `vikram.faculty@${domain}`, password: 'FacultyPass#2026', fullName: 'Vikram Iyer' },
-    { role: Role.CLASS_MENTOR, email: `meera.mentor@${domain}`, password: 'MentorPass#2026', fullName: 'Meera Nair' },
-    { role: Role.HOD, email: `rajesh.hod@${domain}`, password: 'HodPass#2026', fullName: 'Rajesh Kumar' },
-    { role: Role.PRINCIPAL, email: `principal@${domain}`, password: 'PrincipalPass#2026', fullName: 'Lakshmi Menon' },
-    { role: Role.SYSTEM_ADMIN, email: `admin@${domain}`, password: 'AdminPass#2026', fullName: 'System Administrator' },
+    {
+      role: Role.STUDENT,
+      email: `asha.student@${domain}`,
+      password: 'StudentPass#2026',
+      fullName: 'Asha Rao',
+    },
+    {
+      role: Role.FACULTY,
+      email: `vikram.faculty@${domain}`,
+      password: 'FacultyPass#2026',
+      fullName: 'Vikram Iyer',
+    },
+    {
+      role: Role.CLASS_MENTOR,
+      email: `meera.mentor@${domain}`,
+      password: 'MentorPass#2026',
+      fullName: 'Meera Nair',
+    },
+    {
+      role: Role.HOD,
+      email: `rajesh.hod@${domain}`,
+      password: 'HodPass#2026',
+      fullName: 'Rajesh Kumar',
+    },
+    {
+      role: Role.PRINCIPAL,
+      email: `principal@${domain}`,
+      password: 'PrincipalPass#2026',
+      fullName: 'Lakshmi Menon',
+    },
+    {
+      role: Role.SYSTEM_ADMIN,
+      email: `admin@${domain}`,
+      password: 'AdminPass#2026',
+      fullName: 'System Administrator',
+    },
   ];
 
   const credentials: SeededCredential[] = [];
@@ -174,7 +210,11 @@ export async function seedDevelopmentData(domain = 'jnn.edu.in'): Promise<SeedRe
 
   // An issued digital ID so /me/student-id and the QR flow work straight after seeding.
   const admin = users.get(Role.SYSTEM_ADMIN);
-  if (student && admin && !(await studentIdRepository.findActiveForUser(institutionId, student._id))) {
+  if (
+    student &&
+    admin &&
+    !(await studentIdRepository.findActiveForUser(institutionId, student._id))
+  ) {
     const profile = await studentProfileRepository.findByUserId(institutionId, student._id);
     if (profile) {
       await studentIdRepository.create({
@@ -192,6 +232,38 @@ export async function seedDevelopmentData(domain = 'jnn.edu.in'): Promise<SeedRe
   // Phase 3: academics + community data on top of the identity baseline.
   const { seedAcademicsAndCommunity } = await import('./seeders.academics.js');
   await seedAcademicsAndCommunity(institution);
+
+  // Phase 3 Part C-3: a demo attachment on a seeded announcement.
+  const { seedFiles } = await import('./seeders.files.js');
+  await seedFiles(institution);
+
+  // A second, tiny synthetic institution, so tenant isolation can be demonstrated live: its
+  // student can sign in, but every id from the first institution is NOT_FOUND to them.
+  const other = await ensureInstitution({
+    name: 'Riverside Institute of Technology (synthetic)',
+    slug: 'riverside-demo',
+    domains: ['riverside.test'],
+  });
+  await ensureRolesAndPermissions(other._id);
+  const otherStudent = {
+    role: Role.STUDENT,
+    email: 'ravi.student@riverside.test',
+    password: 'OtherTenantPass#2026',
+    fullName: 'Ravi Shetty',
+  };
+  await ensureUser({
+    institutionId: other._id,
+    email: otherStudent.email,
+    password: otherStudent.password,
+    fullName: otherStudent.fullName,
+    roles: [otherStudent.role],
+    primaryRole: otherStudent.role,
+  });
+  credentials.push({
+    role: otherStudent.role,
+    email: otherStudent.email,
+    password: otherStudent.password,
+  });
 
   return { institution, credentials };
 }

@@ -21,15 +21,18 @@ import {
   ChatMemberRole,
   ChatType,
   ClubMembershipStatus,
+  LinkedResourceType,
   NotificationType,
   Permission,
   Role,
   type ChatDTO,
   type ChatDetailDTO,
   type ChatMemberDTO,
+  type AttachmentDTO,
   type ChatMessageDTO,
   type CursorPageDTO,
 } from '@campusconnect/types';
+import { Types } from 'mongoose';
 import type { Principal } from '@campusconnect/security';
 import type {
   AddChatMembersInput,
@@ -58,6 +61,13 @@ import { recordAudit, type AuditContext } from './audit.service.js';
 import { notifyUsers } from './notification.service.js';
 import { realtime } from './realtimeBus.js';
 import { resolveAcademicScope, resolveVisibleClassIds } from './scope.service.js';
+import {
+  attachmentsFor,
+  deleteFilesForResource,
+  linkFiles,
+  registerLinkedResourceReader,
+  unlinkFiles,
+} from './file.service.js';
 import { UserStatus } from '@campusconnect/types';
 
 /** A user's display name, resolved in bulk rather than per message. */
@@ -203,7 +213,11 @@ export async function syncClassChatMembership(
 
 // --- DTOs ---------------------------------------------------------------------
 
-function toMessageDTO(message: ChatMessageDocument, names: NameMap): ChatMessageDTO {
+function toMessageDTO(
+  message: ChatMessageDocument,
+  names: NameMap,
+  attachments: AttachmentDTO[] = [],
+): ChatMessageDTO {
   const senderId = message.senderUserId ? String(message.senderUserId) : null;
   const deleted = message.deletedAt !== null && message.deletedAt !== undefined;
 
@@ -218,8 +232,31 @@ function toMessageDTO(message: ChatMessageDocument, names: NameMap): ChatMessage
     clientMessageId: message.clientMessageId ?? null,
     editedAt: message.editedAt ? message.editedAt.toISOString() : null,
     deleted,
+    // A deleted message's files were deleted with it; nothing to show, to anyone.
+    attachments: deleted ? [] : attachments,
     createdAt: message.createdAt.toISOString(),
   };
+}
+
+/** Attachment metadata for a set of messages, in each message's send order. */
+async function messageAttachments(
+  institutionId: string,
+  messages: readonly ChatMessageDocument[],
+): Promise<Map<string, AttachmentDTO[]>> {
+  const withFiles = messages.filter((message) => message.attachmentFileIds.length > 0);
+  if (withFiles.length === 0) return new Map();
+  const byMessage = await attachmentsFor(
+    institutionId,
+    LinkedResourceType.CHAT_MESSAGE,
+    withFiles.map((message) => String(message._id)),
+  );
+  // Order by the ids the sender attached, not by upload time.
+  for (const message of withFiles) {
+    const key = String(message._id);
+    const order = message.attachmentFileIds.map(String);
+    byMessage.get(key)?.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  }
+  return byMessage;
 }
 
 /** A DIRECT chat has no stored name: it is shown as the other participant. */
@@ -330,8 +367,12 @@ export async function listMessages(
     items.map((message) => (message.senderUserId ? String(message.senderUserId) : '')),
   );
 
+  const attachments = await messageAttachments(institutionId, items);
+
   return {
-    items: items.map((message) => toMessageDTO(message, names)),
+    items: items.map((message) =>
+      toMessageDTO(message, names, attachments.get(String(message._id))),
+    ),
     // The cursor is the oldest id on this page: the next page is everything before it.
     nextCursor: hasMore && items.length > 0 ? String(items[items.length - 1]?._id) : null,
     hasMore,
@@ -372,7 +413,9 @@ export async function createChat(
   // GROUP: the creator owns it, and every invitee must be a real, active, same-tenant user.
   const memberIds = [...new Set(input.memberIds.filter((id) => id !== userId))];
   if (!chatAccess.canAdmitMembers(1, memberIds.length, config.CHAT_GROUP_MAX_MEMBERS)) {
-    throw Errors.validation({ memberIds: `A group may hold ${config.CHAT_GROUP_MAX_MEMBERS} members` });
+    throw Errors.validation({
+      memberIds: `A group may hold ${config.CHAT_GROUP_MAX_MEMBERS} members`,
+    });
   }
   for (const memberId of memberIds) await assertChattableUser(institutionId, memberId);
 
@@ -458,7 +501,9 @@ export async function addMembers(
   const current = await chatMembershipRepository.countMembers(institutionId, chatId);
   const toAdd = [...new Set(input.userIds)];
   if (!chatAccess.canAdmitMembers(current, toAdd.length, config.CHAT_GROUP_MAX_MEMBERS)) {
-    throw Errors.validation({ userIds: `A group may hold ${config.CHAT_GROUP_MAX_MEMBERS} members` });
+    throw Errors.validation({
+      userIds: `A group may hold ${config.CHAT_GROUP_MAX_MEMBERS} members`,
+    });
   }
 
   const names = await namesFor(institutionId, toAdd);
@@ -487,17 +532,18 @@ export async function removeMember(
 
   await chatMembershipRepository.markLeft(institutionId, chatId, targetUserId);
   const names = await namesFor(institutionId, [targetUserId]);
-  await announceSystemMessage(institutionId, chat, `${names.get(targetUserId) ?? 'Someone'} was removed`);
+  await announceSystemMessage(
+    institutionId,
+    chat,
+    `${names.get(targetUserId) ?? 'Someone'} was removed`,
+  );
 
   // Their live sockets must stop receiving this chat immediately, not at next reconnect.
   realtime.toUser(institutionId, targetUserId, 'chat:removed', { chatId });
   return { status: 'REMOVED' };
 }
 
-export async function leaveChat(
-  principal: Principal,
-  chatId: string,
-): Promise<{ status: 'LEFT' }> {
+export async function leaveChat(principal: Principal, chatId: string): Promise<{ status: 'LEFT' }> {
   const { chat, membership, facts } = await loadAccess(principal, chatId);
   if (!chatAccess.canLeave(facts, membership)) throw Errors.forbidden();
   const { institutionId, userId } = principal;
@@ -528,11 +574,14 @@ async function announceSystemMessage(
 export async function sendMessage(
   principal: Principal,
   chatId: string,
-  input: SendMessageInput | { body: string; clientMessageId: string; replyTo?: string },
+  input:
+    | SendMessageInput
+    | { body: string; clientMessageId: string; replyTo?: string; attachmentFileIds?: string[] },
 ): Promise<ChatMessageDTO> {
   const { chat, membership } = await loadAccess(principal, chatId);
   if (!chatAccess.canSend(principal, membership)) throw Errors.forbidden();
   const { institutionId, userId } = principal;
+  const fileIds = input.attachmentFileIds ?? [];
 
   // A reply must point at a message in THIS chat, so a reply cannot be used to probe for ids.
   if (input.replyTo) {
@@ -540,22 +589,55 @@ export async function sendMessage(
     if (!parent || String(parent.chatId) !== chatId) throw Errors.notFound();
   }
 
-  const { message, created } = await chatMessageRepository.createIdempotent(institutionId, {
-    chatId,
-    senderUserId: userId,
-    body: input.body,
-    clientMessageId: input.clientMessageId,
-    replyTo: input.replyTo ?? null,
-  });
-
   const names = await namesFor(institutionId, [userId]);
-  const dto = toMessageDTO(message, names);
+  const dtoFor = async (message: ChatMessageDocument): Promise<ChatMessageDTO> =>
+    toMessageDTO(
+      message,
+      names,
+      (await messageAttachments(institutionId, [message])).get(String(message._id)),
+    );
 
-  // A duplicate send is acknowledged with the original message and nothing else happens: no
-  // second broadcast, no second notification.
-  if (!created) return dto;
+  // A retry of a send that already landed returns the original: its files are already
+  // attached to it, so linking them again would (rightly) fail.
+  const previous = await chatMessageRepository.findByClientMessageId(
+    institutionId,
+    chatId,
+    userId,
+    input.clientMessageId,
+  );
+  if (previous) return dtoFor(previous);
 
-  await chatRepository.touchLastMessageAt(institutionId, chatId, message.createdAt);
+  // Files are linked to a pre-allocated message id first, all or nothing, so a message is never
+  // stored pointing at a file the sender could not attach (someone else's, not yet scanned…).
+  const messageId = new Types.ObjectId();
+  const resource = { type: LinkedResourceType.CHAT_MESSAGE, id: messageId, contextId: chatId };
+  await linkFiles(principal, fileIds, resource);
+
+  let result: { message: ChatMessageDocument; created: boolean };
+  try {
+    result = await chatMessageRepository.createIdempotent(institutionId, {
+      chatId,
+      senderUserId: userId,
+      body: input.body,
+      clientMessageId: input.clientMessageId,
+      replyTo: input.replyTo ?? null,
+      messageId,
+      attachmentFileIds: fileIds,
+    });
+  } catch (err) {
+    await unlinkFiles(institutionId, fileIds, resource);
+    throw err;
+  }
+
+  // Lost a race with a concurrent retry of the same send: release our claim, return theirs.
+  if (!result.created) {
+    await unlinkFiles(institutionId, fileIds, resource);
+    return dtoFor(result.message);
+  }
+
+  const dto = await dtoFor(result.message);
+  await chatRepository.touchLastMessageAt(institutionId, chatId, result.message.createdAt);
+  // Attachment METADATA only travels with the event — never a URL or a storage key.
   realtime.toChat(institutionId, chatId, 'message:new', dto);
   await notifyAbsentMembers(institutionId, chat, userId, dto.id);
 
@@ -615,9 +697,7 @@ async function notifyAbsentMembers(
 
     const senderNames = await namesFor(institutionId, [senderUserId]);
     const chatName =
-      chat.type === ChatType.DIRECT
-        ? (senderNames.get(senderUserId) ?? 'Someone')
-        : chat.name;
+      chat.type === ChatType.DIRECT ? (senderNames.get(senderUserId) ?? 'Someone') : chat.name;
 
     await notifyUsers(institutionId, recipients, {
       type: NotificationType.CHAT,
@@ -626,7 +706,10 @@ async function notifyAbsentMembers(
       body: 'Open CampusConnect to read it.',
       link: `/chat/${chatId}`,
     });
-    logger.debug({ chatId, messageId, recipients: recipients.length }, 'Chat notification fanned out');
+    logger.debug(
+      { chatId, messageId, recipients: recipients.length },
+      'Chat notification fanned out',
+    );
   } catch (err) {
     // The message is already saved and broadcast; failing to notify must not undo that.
     logger.error({ err, chatId: String(chat._id) }, 'Could not notify absent chat members');
@@ -660,7 +743,12 @@ export async function editMessage(
   const updated = await chatMessageRepository.findById(institutionId, messageId);
   if (!updated) throw Errors.notFound();
 
-  const dto = toMessageDTO(updated, await namesFor(institutionId, [userId]));
+  const attachments = await messageAttachments(institutionId, [updated]);
+  const dto = toMessageDTO(
+    updated,
+    await namesFor(institutionId, [userId]),
+    attachments.get(messageId),
+  );
   realtime.toChat(institutionId, chatId, 'message:updated', dto);
   return dto;
 }
@@ -694,6 +782,14 @@ export async function deleteMessage(
   if (!own && !asModerator) throw Errors.forbidden();
 
   await chatMessageRepository.softDelete(institutionId, messageId, userId);
+  // The files go with the message: bytes removed, metadata marked deleted.
+  await deleteFilesForResource(
+    institutionId,
+    LinkedResourceType.CHAT_MESSAGE,
+    messageId,
+    userId,
+    asModerator ? 'MODERATOR' : 'RESOURCE_DELETED',
+  );
 
   if (asModerator) {
     await recordAudit({
@@ -737,7 +833,12 @@ export async function markRead(
   const message = await chatMessageRepository.findById(institutionId, lastReadMessageId);
   if (!message || String(message.chatId) !== chatId) throw Errors.notFound();
 
-  await chatMembershipRepository.advanceReadMarker(institutionId, chatId, userId, lastReadMessageId);
+  await chatMembershipRepository.advanceReadMarker(
+    institutionId,
+    chatId,
+    userId,
+    lastReadMessageId,
+  );
 
   // Read receipts are chat-wide: the other members see how far this member has read.
   realtime.toChat(institutionId, chatId, 'message:read', { chatId, userId, lastReadMessageId });
@@ -800,5 +901,22 @@ export async function assertReportableMessage(
   // You may only report a message in a chat you can actually see.
   await loadAccess(principal, String(message.chatId));
 }
+
+/**
+ * Chat's answer to "may this principal open a file attached to this message?": exactly when
+ * they can read the message — an active member of its chat, the message still there. Leaving
+ * the chat, or being removed from it, therefore takes its attachments away immediately.
+ */
+registerLinkedResourceReader(LinkedResourceType.CHAT_MESSAGE, async (principal, resource) => {
+  if (!resource.contextId) return false;
+  const chatId = String(resource.contextId);
+  try {
+    await loadAccess(principal, chatId);
+  } catch {
+    return false;
+  }
+  const message = await chatMessageRepository.findById(principal.institutionId, resource.id);
+  return Boolean(message && String(message.chatId) === chatId && !message.deletedAt);
+});
 
 export const __testing = { toMessageDTO };

@@ -7,7 +7,8 @@
  * sanitize middleware, since a socket frame never passes through Express.
  */
 import { z } from 'zod';
-import { objectIdSchema } from './common.js';
+import { UPLOAD } from '@campusconnect/config';
+import { attachmentIdsSchema, objectIdSchema } from './common.js';
 
 /** Bodies are plain text and bounded. The UI renders them as text; there is no markup contract. */
 export const messageBodySchema = z.string().trim().min(1, 'Write a message').max(4000);
@@ -95,19 +96,28 @@ export const chatMessageQuerySchema = z.object({
 });
 export type ChatMessageQuery = z.infer<typeof chatMessageQuerySchema>;
 
+/**
+ * A message is text, attachments, or both — never neither. The body may be empty only when at
+ * least one file rides along, so an attachment can be sent without a caption.
+ */
+const messageContentShape = {
+  body: z.string().trim().max(4000).default(''),
+  clientMessageId: clientMessageIdSchema,
+  replyTo: objectIdSchema.optional(),
+  attachmentFileIds: attachmentIdsSchema(UPLOAD.CHAT_MAX_ATTACHMENTS),
+};
+
+const requireContent = (
+  value: { body: string; attachmentFileIds: string[] },
+  ctx: z.RefinementCtx,
+) => {
+  if (value.body.length === 0 && value.attachmentFileIds.length === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['body'], message: 'Write a message' });
+  }
+};
+
 export const sendMessageSchema = noInjection(
-  z.object({
-    body: messageBodySchema,
-    clientMessageId: clientMessageIdSchema,
-    replyTo: objectIdSchema.optional(),
-    /**
-     * Attachments are Part C-3. The field exists in the schema so the shape is stable, and is
-     * rejected on input until then rather than silently ignored.
-     */
-    attachmentRef: z
-      .never({ invalid_type_error: 'Attachments are not available yet' })
-      .optional(),
-  }),
+  z.object(messageContentShape).superRefine(requireContent),
 );
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 
@@ -140,12 +150,7 @@ export const socketChatIdSchema = noInjection(z.object({ chatId: objectIdSchema 
 export type SocketChatIdPayload = z.infer<typeof socketChatIdSchema>;
 
 export const socketSendMessageSchema = noInjection(
-  z.object({
-    chatId: objectIdSchema,
-    body: messageBodySchema,
-    clientMessageId: clientMessageIdSchema,
-    replyTo: objectIdSchema.optional(),
-  }),
+  z.object({ chatId: objectIdSchema, ...messageContentShape }).superRefine(requireContent),
 );
 export type SocketSendMessagePayload = z.infer<typeof socketSendMessageSchema>;
 

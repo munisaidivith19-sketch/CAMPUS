@@ -7,6 +7,7 @@
  * was suggested. No model produces them; AI-assisted suggestions are Phase 5 and would be
  * labelled separately.
  */
+import type { AttachmentDTO } from './files.js';
 
 export const AnnouncementScope = {
   COLLEGE: 'COLLEGE',
@@ -124,6 +125,8 @@ export interface AnnouncementDTO {
   publishAt: string;
   expireAt: string | null;
   read: boolean;
+  /** Metadata only; downloads go through `GET /files/:id`, which re-authorizes. */
+  attachments: AttachmentDTO[];
   createdAt: string;
 }
 

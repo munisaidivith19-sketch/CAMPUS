@@ -12,3 +12,4 @@ export * from './identity.js';
 export * from './academics.js';
 export * from './community.js';
 export * from './chat.js';
+export * from './files.js';

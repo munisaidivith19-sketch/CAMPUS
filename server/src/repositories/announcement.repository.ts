@@ -52,8 +52,12 @@ class AnnouncementRepository extends TenantRepository<AnnouncementEntity> {
     target: AnnouncementAttrs['target'];
     publishAt: Date;
     expireAt?: Date | null;
+    /** Pre-allocated so attachments can be linked before the announcement exists. */
+    id?: IdLike;
+    attachmentFileIds?: readonly IdLike[];
   }): Promise<AnnouncementDocument> {
     return AnnouncementModel.create({
+      ...(data.id ? { _id: requireObjectId(data.id) } : {}),
       institutionId: requireObjectId(data.institutionId),
       authorUserId: requireObjectId(data.authorUserId),
       title: data.title,
@@ -63,6 +67,7 @@ class AnnouncementRepository extends TenantRepository<AnnouncementEntity> {
       publishAt: data.publishAt,
       expireAt: data.expireAt ?? null,
       readBy: [],
+      attachmentFileIds: (data.attachmentFileIds ?? []).map((id) => requireObjectId(id)),
     });
   }
 
@@ -80,7 +85,10 @@ class AnnouncementRepository extends TenantRepository<AnnouncementEntity> {
     if (audience.departmentId) {
       const departmentId = toObjectId(audience.departmentId);
       if (departmentId) {
-        branches.push({ 'target.scope': AnnouncementScope.DEPARTMENT, 'target.departmentId': departmentId });
+        branches.push({
+          'target.scope': AnnouncementScope.DEPARTMENT,
+          'target.departmentId': departmentId,
+        });
       }
     }
 
@@ -104,7 +112,10 @@ class AnnouncementRepository extends TenantRepository<AnnouncementEntity> {
     }
 
     if (audience.roles.length > 0) {
-      branches.push({ 'target.scope': AnnouncementScope.ROLE, 'target.role': { $in: audience.roles } });
+      branches.push({
+        'target.scope': AnnouncementScope.ROLE,
+        'target.role': { $in: audience.roles },
+      });
     }
 
     return { $or: branches };
@@ -135,7 +146,9 @@ class AnnouncementRepository extends TenantRepository<AnnouncementEntity> {
       (filter.$and as FilterQuery<AnnouncementEntity>[]).push({ priority: options.priority });
     }
     if (options.search) {
-      (filter.$and as FilterQuery<AnnouncementEntity>[]).push({ $text: { $search: options.search } });
+      (filter.$and as FilterQuery<AnnouncementEntity>[]).push({
+        $text: { $search: options.search },
+      });
     }
 
     // Priority first, then recency — an URGENT notice should not be pushed down by a newer one.

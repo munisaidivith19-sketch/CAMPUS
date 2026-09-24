@@ -21,9 +21,13 @@ export interface ChatMessageAttrs {
   chatId: ObjectId;
   /** Null for SYSTEM messages, which the server writes itself. */
   senderUserId?: ObjectId | null;
+  /** May be empty when the message carries attachments only. */
   body: string;
-  /** Part C-3. Always null here; the input schema rejects it. */
-  attachmentRef?: string | null;
+  /**
+   * Files attached at send time (Part C-3), in the order they were sent. Access to them is
+   * inherited from this message through `File.linkedResource`; this list is only the order.
+   */
+  attachmentFileIds: ObjectId[];
   replyTo?: ObjectId | null;
   type: ChatMessageType;
   /** The sender's own id for this message, for idempotent sends. Null for SYSTEM. */
@@ -38,8 +42,8 @@ const messageSchema = new Schema<ChatMessageAttrs & Timestamps>(
     institutionId: tenantKey,
     chatId: { type: Schema.Types.ObjectId, ref: 'Chat', required: true },
     senderUserId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
-    body: { type: String, required: true, maxlength: 4000 },
-    attachmentRef: { type: String, default: null },
+    body: { type: String, default: '', maxlength: 4000 },
+    attachmentFileIds: { type: [Schema.Types.ObjectId], ref: 'File', default: [] },
     replyTo: { type: Schema.Types.ObjectId, ref: 'ChatMessage', default: null },
     type: {
       type: String,

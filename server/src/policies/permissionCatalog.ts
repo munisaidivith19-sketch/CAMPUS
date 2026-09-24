@@ -41,7 +41,8 @@ export const PERMISSION_DESCRIPTIONS: Readonly<Record<Permission, string>> = {
   [Permission.ATTENDANCE_MARK]: 'Mark attendance for a class you teach.',
   [Permission.ATTENDANCE_READ_SCOPE]:
     'View attendance beyond your own — limited to your classes, section, department or college.',
-  [Permission.ATTENDANCE_CORRECTION_REQUEST]: 'Ask for one of your own attendance records to be corrected.',
+  [Permission.ATTENDANCE_CORRECTION_REQUEST]:
+    'Ask for one of your own attendance records to be corrected.',
   [Permission.ATTENDANCE_CORRECTION_REVIEW]: 'Approve or reject attendance correction requests.',
 
   [Permission.ANNOUNCEMENT_READ]: 'Read announcements addressed to you.',
@@ -67,6 +68,10 @@ export const PERMISSION_DESCRIPTIONS: Readonly<Record<Permission, string>> = {
   [Permission.CHAT_MANAGE]: 'Administer a group chat you own: add or remove its members.',
   [Permission.CHAT_MODERATE]:
     'Remove someone else’s chat message, within the classes or clubs you moderate. Highly privileged.',
+
+  [Permission.FILE_UPLOAD]:
+    'Upload files of your own to attach to messages and posts. Who can then open a file is decided by what it is attached to.',
+  [Permission.FILE_READ]: 'Open files attached to things you are allowed to see.',
 
   [Permission.GATEPASS_APPROVE]: 'Approve student gate passes. (Phase 4)',
 };

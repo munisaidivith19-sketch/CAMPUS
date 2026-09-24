@@ -8,7 +8,12 @@
  */
 import { Types, type FilterQuery } from 'mongoose';
 import { ChatMemberRole, ChatMessageType, ChatType } from '@campusconnect/types';
-import { ChatModel, directKeyFor, type ChatAttrs, type ChatDocument } from '../models/Chat.model.js';
+import {
+  ChatModel,
+  directKeyFor,
+  type ChatAttrs,
+  type ChatDocument,
+} from '../models/Chat.model.js';
 import {
   ChatMembershipModel,
   type ChatMembershipAttrs,
@@ -41,7 +46,9 @@ class ChatRepository extends TenantRepository<ChatEntity> {
   }
 
   async findManyByIds(institutionId: IdLike, ids: readonly IdLike[]): Promise<ChatDocument[]> {
-    const objectIds = ids.map((id) => toObjectId(id)).filter((id): id is Types.ObjectId => id !== null);
+    const objectIds = ids
+      .map((id) => toObjectId(id))
+      .filter((id): id is Types.ObjectId => id !== null);
     if (objectIds.length === 0) return [];
     return ChatModel.find(this.scoped(institutionId, { _id: { $in: objectIds } })).exec();
   }
@@ -71,7 +78,9 @@ class ChatRepository extends TenantRepository<ChatEntity> {
     userIdB: string,
   ): Promise<{ chat: ChatDocument; created: boolean }> {
     const key = directKeyFor(userIdA, userIdB);
-    const existing = await this.findOneScoped(institutionId, { directKey: key } as FilterQuery<ChatEntity>);
+    const existing = await this.findOneScoped(institutionId, {
+      directKey: key,
+    } as FilterQuery<ChatEntity>);
     if (existing) return { chat: existing, created: false };
 
     try {
@@ -85,10 +94,9 @@ class ChatRepository extends TenantRepository<ChatEntity> {
       return { chat, created: true };
     } catch (err) {
       if (!isDuplicateKey(err)) throw err;
-      const winner = await this.findOneScoped(
-        institutionId,
-        { directKey: key } as FilterQuery<ChatEntity>,
-      );
+      const winner = await this.findOneScoped(institutionId, {
+        directKey: key,
+      } as FilterQuery<ChatEntity>);
       if (!winner) throw err;
       return { chat: winner, created: false };
     }
@@ -340,6 +348,9 @@ class ChatMessageRepository extends TenantRepository<MessageEntity> {
       body: string;
       clientMessageId: string;
       replyTo?: string | null;
+      /** Pre-allocated so attachments can be linked to the message before it exists. */
+      messageId?: Types.ObjectId;
+      attachmentFileIds?: readonly IdLike[];
     },
   ): Promise<{ message: ChatMessageDocument; created: boolean }> {
     const scope = {
@@ -351,10 +362,12 @@ class ChatMessageRepository extends TenantRepository<MessageEntity> {
 
     try {
       const message = await ChatMessageModel.create({
+        ...(input.messageId ? { _id: input.messageId } : {}),
         ...scope,
         body: input.body,
         type: ChatMessageType.TEXT,
         replyTo: input.replyTo ? requireObjectId(input.replyTo) : null,
+        attachmentFileIds: (input.attachmentFileIds ?? []).map((id) => requireObjectId(id)),
       });
       return { message, created: true };
     } catch (err) {
@@ -363,6 +376,20 @@ class ChatMessageRepository extends TenantRepository<MessageEntity> {
       if (!existing) throw err;
       return { message: existing, created: false };
     }
+  }
+
+  /** The message a sender already sent under this client id, if any (idempotent retries). */
+  async findByClientMessageId(
+    institutionId: IdLike,
+    chatId: IdLike,
+    senderUserId: IdLike,
+    clientMessageId: string,
+  ): Promise<ChatMessageDocument | null> {
+    return this.findOneScoped(institutionId, {
+      chatId: requireObjectId(chatId),
+      senderUserId: requireObjectId(senderUserId),
+      clientMessageId,
+    } as FilterQuery<MessageEntity>);
   }
 
   /** A membership-change notice. Written by the server, so it has no sender and no client id. */
@@ -461,11 +488,15 @@ class ChatMessageRepository extends TenantRepository<MessageEntity> {
     institutionId: IdLike,
     chatIds: readonly IdLike[],
   ): Promise<Map<string, Date>> {
-    const ids = chatIds.map((id) => toObjectId(id)).filter((id): id is Types.ObjectId => id !== null);
+    const ids = chatIds
+      .map((id) => toObjectId(id))
+      .filter((id): id is Types.ObjectId => id !== null);
     if (ids.length === 0) return new Map();
 
     const rows = await ChatMessageModel.aggregate<{ _id: Types.ObjectId; at: Date }>([
-      { $match: this.scoped(institutionId, { chatId: { $in: ids } } as FilterQuery<MessageEntity>) },
+      {
+        $match: this.scoped(institutionId, { chatId: { $in: ids } } as FilterQuery<MessageEntity>),
+      },
       { $group: { _id: '$chatId', at: { $max: '$createdAt' } } },
     ]).exec();
 

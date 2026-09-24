@@ -97,6 +97,15 @@ export const Permission = {
   CHAT_MANAGE: 'chat:manage',
   CHAT_MODERATE: 'chat:moderate',
 
+  // --- Files (Phase 3 Part C-3) ----------------------------------------------
+  /**
+   * Upload a file of your own. It stays private to you until you attach it to something; who
+   * may then read it is decided by the thing it is attached to, never by this permission.
+   */
+  FILE_UPLOAD: 'file:upload',
+  /** Use the download endpoints at all. Access to a given file is still decided per file. */
+  FILE_READ: 'file:read',
+
   // --- Later-phase anchors (seeded now, enforced by the phase that ships them)
   GATEPASS_APPROVE: 'gatepass:approve',
 } as const;

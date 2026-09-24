@@ -14,6 +14,10 @@ export const ErrorCode = {
   PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
   UNSUPPORTED_MEDIA_TYPE: 'UNSUPPORTED_MEDIA_TYPE',
   MALWARE_DETECTED: 'MALWARE_DETECTED',
+  /** The malware scanner could not be reached; the upload is held and is not downloadable. */
+  SCAN_FAILED: 'SCAN_FAILED',
+  /** The caller's own storage allowance would be exceeded. */
+  QUOTA_EXCEEDED: 'QUOTA_EXCEEDED',
   INTERNAL: 'INTERNAL',
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
@@ -29,16 +33,28 @@ export const PAGINATION = {
   MAX_LIMIT: 100,
 } as const;
 
-/** Upload limits (bytes). Mirror MAX_UPLOAD_BYTES in .env.example. */
+/**
+ * Upload limits shared with clients for UX (pre-checking a file before sending it). The server
+ * enforces its own configured values — MAX_UPLOAD_BYTES and UPLOAD_ALLOWED_TYPES in .env — and
+ * verifies every file's real type from its bytes; nothing here is trusted on the way in.
+ */
 export const UPLOAD = {
   MAX_BYTES: 26_214_400, // 25 MiB
-  ALLOWED_DOC_MIME: [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'application/zip',
+  /** The default allowlist, by extension. Anything else is refused. */
+  ALLOWED_EXTENSIONS: [
+    'pdf',
+    'png',
+    'jpg',
+    'jpeg',
+    'webp',
+    'gif',
+    'docx',
+    'xlsx',
+    'pptx',
+    'txt',
+    'csv',
+    'zip',
   ],
-  ALLOWED_IMAGE_MIME: ['image/png', 'image/jpeg', 'image/webp'],
+  CHAT_MAX_ATTACHMENTS: 5,
+  ANNOUNCEMENT_MAX_ATTACHMENTS: 10,
 } as const;

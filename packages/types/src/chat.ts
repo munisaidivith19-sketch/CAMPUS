@@ -14,6 +14,8 @@
  * from the roster or the club's approved members, so losing the underlying membership takes the
  * chat with it.
  */
+import type { AttachmentDTO } from './files.js';
+
 export const ChatType = {
   DIRECT: 'DIRECT',
   GROUP: 'GROUP',
@@ -75,6 +77,11 @@ export interface ChatMessageDTO {
   clientMessageId: string | null;
   editedAt: string | null;
   deleted: boolean;
+  /**
+   * Metadata only — never a URL or storage key. Empty once the message is deleted, because a
+   * deleted message's files are deleted with it.
+   */
+  attachments: AttachmentDTO[];
   createdAt: string;
 }
 

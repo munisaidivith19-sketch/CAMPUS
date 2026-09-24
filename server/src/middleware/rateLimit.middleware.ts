@@ -29,7 +29,12 @@
  * throttling in the auth service, generic (non-enumerating) responses, and MFA.
  */
 import type { Request } from 'express';
-import { MemoryStore, rateLimit, type RateLimitRequestHandler, type Store } from 'express-rate-limit';
+import {
+  MemoryStore,
+  rateLimit,
+  type RateLimitRequestHandler,
+  type Store,
+} from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
 import type { ClientRateLimitInfo, IncrementResponse, Options } from 'express-rate-limit';
 import { config } from '../config/env.js';
@@ -218,6 +223,23 @@ export const chatSendLimiter = makeLimiter(
   config.CHAT_SEND_RATE_PER_MINUTE,
   (req: Request) => req.principal?.userId ?? `ip:${req.ip ?? 'unknown'}`,
 );
+
+/** Keyed by the authenticated user, like chat sending: uploads are a per-person budget. */
+const byUser = (req: Request): string => req.principal?.userId ?? `ip:${req.ip ?? 'unknown'}`;
+
+/** Uploads started per user per hour. Its own prefix, so it never shares a budget. */
+export const uploadLimiter = makeLimiter(
+  'file-upload',
+  60 * MINUTES,
+  config.UPLOAD_RATE_PER_HOUR,
+  byUser,
+);
+
+/**
+ * Signed-URL downloads, per IP: the content route carries no bearer token, so there is no user
+ * to key on before the token is verified. Generous — it only has to stop token-guessing floods.
+ */
+export const fileDownloadLimiter = makeLimiter('file-download', 1 * MINUTES, 120);
 
 /**
  * Clear every counter. Used by the test suite so one suite's login attempts cannot exhaust the

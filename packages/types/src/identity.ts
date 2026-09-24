@@ -78,6 +78,12 @@ export const AuditAction = {
   DISCUSSION_CREATED: 'DISCUSSION_CREATED',
   CONTENT_REPORTED: 'CONTENT_REPORTED',
   CONTENT_REMOVED: 'CONTENT_REMOVED',
+
+  // --- Files (Phase 3 Part C-3) ---
+  FILE_UPLOADED: 'FILE_UPLOADED',
+  /** The scanner flagged the upload; its bytes were destroyed and the row kept as evidence. */
+  FILE_MALWARE_DETECTED: 'FILE_MALWARE_DETECTED',
+  FILE_DELETED: 'FILE_DELETED',
 } as const;
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 

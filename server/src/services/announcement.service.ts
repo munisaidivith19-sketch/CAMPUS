@@ -12,6 +12,8 @@
  */
 import type { Principal } from '@campusconnect/security';
 import {
+  LinkedResourceType,
+  type AttachmentDTO,
   AnnouncementPriority,
   AnnouncementScope,
   AuditAction,
@@ -20,6 +22,7 @@ import {
   Role,
   type AnnouncementDTO,
 } from '@campusconnect/types';
+import { Types } from 'mongoose';
 import type { CreateAnnouncementInput } from '@campusconnect/validation';
 import { announcementRepository } from '../repositories/announcement.repository.js';
 import { clubRepository, clubMembershipRepository } from '../repositories/club.repository.js';
@@ -32,6 +35,12 @@ import { recordAudit, type AuditContext } from './audit.service.js';
 import { notifyUsers } from './notification.service.js';
 import { buildAudienceContext, resolveAcademicScope } from './scope.service.js';
 import type { AnnouncementDocument } from '../models/Announcement.model.js';
+import {
+  attachmentsFor,
+  linkFiles,
+  registerLinkedResourceReader,
+  unlinkFiles,
+} from './file.service.js';
 
 /** Recipients notified per announcement. Beyond this the feed still shows it to everyone. */
 const NOTIFICATION_FANOUT_CAP = 500;
@@ -78,7 +87,8 @@ async function assertCanAnnounceTo(
       const scope = await resolveAcademicScope(principal);
       if (target.scope === AnnouncementScope.SECTION) {
         const owns = scope.sections.some(
-          (s) => s.batch === target.batch && s.section.toUpperCase() === target.section?.toUpperCase(),
+          (s) =>
+            s.batch === target.batch && s.section.toUpperCase() === target.section?.toUpperCase(),
         );
         if (!owns) throw Errors.forbidden();
       }
@@ -133,17 +143,19 @@ async function resolveRecipients(
 
     case AnnouncementScope.DEPARTMENT: {
       if (!target.departmentId) return [];
-      const roster = await studentProfileRepository.listByDepartment(institutionId, target.departmentId);
+      const roster = await studentProfileRepository.listByDepartment(
+        institutionId,
+        target.departmentId,
+      );
       return roster.map((profile) => String(profile.userId));
     }
 
     case AnnouncementScope.CLUB: {
       if (!target.clubId) return [];
-      const memberships = await clubMembershipRepository.listForClub(
-        institutionId,
-        target.clubId,
-        { page: 1, limit: NOTIFICATION_FANOUT_CAP },
-      );
+      const memberships = await clubMembershipRepository.listForClub(institutionId, target.clubId, {
+        page: 1,
+        limit: NOTIFICATION_FANOUT_CAP,
+      });
       return memberships.items.map((membership) => String(membership.userId));
     }
 
@@ -171,6 +183,7 @@ function toAnnouncementDTO(
   announcement: AnnouncementDocument,
   readerUserId: string,
   authorNames: Map<string, string>,
+  attachments: AttachmentDTO[] = [],
 ): AnnouncementDTO {
   return {
     id: String(announcement._id),
@@ -179,7 +192,9 @@ function toAnnouncementDTO(
     priority: announcement.priority,
     target: {
       scope: announcement.target.scope,
-      departmentId: announcement.target.departmentId ? String(announcement.target.departmentId) : null,
+      departmentId: announcement.target.departmentId
+        ? String(announcement.target.departmentId)
+        : null,
       batch: announcement.target.batch ?? null,
       section: announcement.target.section ?? null,
       clubId: announcement.target.clubId ? String(announcement.target.clubId) : null,
@@ -192,8 +207,28 @@ function toAnnouncementDTO(
     publishAt: announcement.publishAt.toISOString(),
     expireAt: announcement.expireAt ? announcement.expireAt.toISOString() : null,
     read: announcement.readBy.some((id) => String(id) === readerUserId),
+    attachments,
     createdAt: announcement.createdAt.toISOString(),
   };
+}
+
+/** Attachment metadata for announcements, each in the order its author attached them. */
+async function announcementAttachments(
+  institutionId: string,
+  announcements: readonly AnnouncementDocument[],
+): Promise<Map<string, AttachmentDTO[]>> {
+  const withFiles = announcements.filter((row) => (row.attachmentFileIds ?? []).length > 0);
+  if (withFiles.length === 0) return new Map();
+  const byId = await attachmentsFor(
+    institutionId,
+    LinkedResourceType.ANNOUNCEMENT,
+    withFiles.map((row) => String(row._id)),
+  );
+  for (const row of withFiles) {
+    const order = row.attachmentFileIds.map(String);
+    byId.get(String(row._id))?.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  }
+  return byId;
 }
 
 export async function createAnnouncement(
@@ -205,23 +240,38 @@ export async function createAnnouncement(
 
   await assertCanAnnounceTo(principal, input.target);
 
-  const announcement = await announcementRepository.create({
-    institutionId,
-    authorUserId: principal.userId,
-    title: input.title,
-    body: input.body,
-    priority: input.priority ?? AnnouncementPriority.NORMAL,
-    target: {
-      scope: input.target.scope,
-      departmentId: input.target.departmentId ? requireObjectId(input.target.departmentId) : null,
-      batch: input.target.batch ?? null,
-      section: input.target.section ?? null,
-      clubId: input.target.clubId ? requireObjectId(input.target.clubId) : null,
-      role: input.target.role ?? null,
-    },
-    publishAt: input.publishAt ?? new Date(),
-    expireAt: input.expireAt ?? null,
-  });
+  // Files are linked to a pre-allocated id first, all or nothing: an announcement is never
+  // stored pointing at a file its author could not attach.
+  const fileIds = input.attachmentFileIds ?? [];
+  const announcementId = new Types.ObjectId();
+  const resource = { type: LinkedResourceType.ANNOUNCEMENT, id: announcementId };
+  await linkFiles(principal, fileIds, resource);
+
+  let announcement: AnnouncementDocument;
+  try {
+    announcement = await announcementRepository.create({
+      id: announcementId,
+      attachmentFileIds: fileIds,
+      institutionId,
+      authorUserId: principal.userId,
+      title: input.title,
+      body: input.body,
+      priority: input.priority ?? AnnouncementPriority.NORMAL,
+      target: {
+        scope: input.target.scope,
+        departmentId: input.target.departmentId ? requireObjectId(input.target.departmentId) : null,
+        batch: input.target.batch ?? null,
+        section: input.target.section ?? null,
+        clubId: input.target.clubId ? requireObjectId(input.target.clubId) : null,
+        role: input.target.role ?? null,
+      },
+      publishAt: input.publishAt ?? new Date(),
+      expireAt: input.expireAt ?? null,
+    });
+  } catch (err) {
+    await unlinkFiles(institutionId, fileIds, resource);
+    throw err;
+  }
 
   await recordAudit({
     institutionId,
@@ -250,7 +300,13 @@ export async function createAnnouncement(
   }
 
   const authorNames = new Map([[principal.userId, 'You']]);
-  return toAnnouncementDTO(announcement, principal.userId, authorNames);
+  const attachments = await announcementAttachments(institutionId, [announcement]);
+  return toAnnouncementDTO(
+    announcement,
+    principal.userId,
+    authorNames,
+    attachments.get(String(announcement._id)),
+  );
 }
 
 export async function listAnnouncements(
@@ -261,14 +317,23 @@ export async function listAnnouncements(
   const { institutionId } = principal;
   const audience = await buildAudienceContext(principal);
 
-  const result = await announcementRepository.listForAudience(institutionId, audience, page, options);
+  const result = await announcementRepository.listForAudience(
+    institutionId,
+    audience,
+    page,
+    options,
+  );
 
   const users = await userRepository.listUsers(institutionId, { page: 1, limit: 300 });
   const authorNames = new Map(users.items.map((user) => [String(user._id), user.fullName]));
 
+  const attachments = await announcementAttachments(institutionId, result.items);
+
   return {
     items: await Promise.all(
-      result.items.map((row) => toAnnouncementDTO(row, principal.userId, authorNames)),
+      result.items.map((row) =>
+        toAnnouncementDTO(row, principal.userId, authorNames, attachments.get(String(row._id))),
+      ),
     ),
     total: result.total,
   };
@@ -283,7 +348,11 @@ export async function getAnnouncement(
   const audience = await buildAudienceContext(principal);
 
   // Not addressed to this reader → indistinguishable from not existing.
-  const addressed = await announcementRepository.isAddressedTo(institutionId, announcementId, audience);
+  const addressed = await announcementRepository.isAddressedTo(
+    institutionId,
+    announcementId,
+    audience,
+  );
   if (!addressed) throw Errors.notFound();
 
   const announcement = await announcementRepository.findById(institutionId, announcementId);
@@ -292,11 +361,15 @@ export async function getAnnouncement(
   await announcementRepository.markRead(institutionId, announcementId, principal.userId);
 
   const author = await userRepository.findById(institutionId, announcement.authorUserId);
-  const authorNames = new Map(
-    author ? [[String(author._id), author.fullName]] : [],
-  );
+  const authorNames = new Map(author ? [[String(author._id), author.fullName]] : []);
 
-  const dto = toAnnouncementDTO(announcement, principal.userId, authorNames);
+  const attachments = await announcementAttachments(institutionId, [announcement]);
+  const dto = toAnnouncementDTO(
+    announcement,
+    principal.userId,
+    authorNames,
+    attachments.get(announcementId),
+  );
   // Reflect the read we just performed rather than the pre-read snapshot.
   return { ...dto, read: true };
 }
@@ -315,3 +388,20 @@ export async function markAnnouncementRead(
 
   await announcementRepository.markRead(principal.institutionId, announcementId, principal.userId);
 }
+
+/**
+ * Announcements' answer to "may this principal open a file attached to this one?": exactly when
+ * the announcement is addressed to them (evaluated now, against who they are now), or they
+ * wrote it.
+ */
+registerLinkedResourceReader(LinkedResourceType.ANNOUNCEMENT, async (principal, resource) => {
+  const announcement = await announcementRepository.findById(principal.institutionId, resource.id);
+  if (!announcement) return false;
+  if (String(announcement.authorUserId) === principal.userId) return true;
+  const audience = await buildAudienceContext(principal);
+  return announcementRepository.isAddressedTo(
+    principal.institutionId,
+    String(resource.id),
+    audience,
+  );
+});

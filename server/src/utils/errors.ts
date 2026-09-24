@@ -26,7 +26,11 @@ export class AppError extends Error {
 /** Common factories — keep messages generic to avoid leaking internals/enumeration. */
 export const Errors = {
   authRequired: () =>
-    new AppError({ statusCode: 401, code: ErrorCode.AUTH_REQUIRED, message: 'Authentication required.' }),
+    new AppError({
+      statusCode: 401,
+      code: ErrorCode.AUTH_REQUIRED,
+      message: 'Authentication required.',
+    }),
   authInvalid: (message = 'Invalid credentials.') =>
     new AppError({ statusCode: 401, code: ErrorCode.AUTH_INVALID, message }),
   /**
@@ -34,7 +38,11 @@ export const Errors = {
    * Carries no user detail — the challenge id is the only thing that advances the flow.
    */
   mfaRequired: () =>
-    new AppError({ statusCode: 401, code: ErrorCode.MFA_REQUIRED, message: 'Multi-factor authentication required.' }),
+    new AppError({
+      statusCode: 401,
+      code: ErrorCode.MFA_REQUIRED,
+      message: 'Multi-factor authentication required.',
+    }),
   conflict: (message = 'Resource already exists.') =>
     new AppError({ statusCode: 409, code: ErrorCode.CONFLICT, message }),
   forbidden: () =>
@@ -54,6 +62,29 @@ export const Errors = {
     }),
   rateLimited: () =>
     new AppError({ statusCode: 429, code: ErrorCode.RATE_LIMITED, message: 'Too many requests.' }),
+  payloadTooLarge: (message = 'The upload is larger than allowed.') =>
+    new AppError({ statusCode: 413, code: ErrorCode.PAYLOAD_TOO_LARGE, message }),
+  quotaExceeded: () =>
+    new AppError({
+      statusCode: 413,
+      code: ErrorCode.QUOTA_EXCEEDED,
+      message: 'This upload would exceed your storage allowance.',
+    }),
+  unsupportedMediaType: (message = 'This type of file is not allowed.') =>
+    new AppError({ statusCode: 415, code: ErrorCode.UNSUPPORTED_MEDIA_TYPE, message }),
+  malwareDetected: () =>
+    new AppError({
+      statusCode: 422,
+      code: ErrorCode.MALWARE_DETECTED,
+      message: 'The file was rejected by the malware scanner.',
+    }),
+  scanFailed: () =>
+    new AppError({
+      statusCode: 503,
+      code: ErrorCode.SCAN_FAILED,
+      message:
+        'The file could not be scanned for malware right now. It has been held and cannot be shared.',
+    }),
   internal: () =>
     new AppError({
       statusCode: 500,

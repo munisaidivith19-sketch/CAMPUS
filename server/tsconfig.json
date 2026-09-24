@@ -5,7 +5,8 @@
     "noEmit": false,
     "composite": false,
     "types": ["node"],
-    "lib": ["ES2022"]
+    "lib": ["ES2022"],
+    "customConditions": ["node"]
   },
   "include": ["src"],
   "exclude": ["node_modules", "dist", "tests"]

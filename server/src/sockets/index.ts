@@ -49,7 +49,12 @@ interface SocketData {
   events: { windowStartedAt: number; count: number };
 }
 
-type ChatSocket = Socket<Record<string, never>, Record<string, never>, Record<string, never>, SocketData>;
+type ChatSocket = Socket<
+  Record<string, never>,
+  Record<string, never>,
+  Record<string, never>,
+  SocketData
+>;
 
 let io: Server | null = null;
 let degraded = false;
@@ -230,6 +235,7 @@ function registerHandlers(socket: ChatSocket): void {
         body: payload.body,
         clientMessageId: payload.clientMessageId,
         replyTo: payload.replyTo,
+        attachmentFileIds: payload.attachmentFileIds,
       }),
     ),
   );
@@ -296,7 +302,10 @@ export async function attachRealtime(httpServer: HttpServer): Promise<Server> {
       .catch((err: unknown) => {
         // Refuse the connection. The message is a code, not a reason: a client that guesses a
         // token learns only that it did not work.
-        const code = err instanceof Error && err.message === 'AUTH_REQUIRED' ? 'AUTH_REQUIRED' : 'AUTH_INVALID';
+        const code =
+          err instanceof Error && err.message === 'AUTH_REQUIRED'
+            ? 'AUTH_REQUIRED'
+            : 'AUTH_INVALID';
         next(new Error(code));
       });
   });

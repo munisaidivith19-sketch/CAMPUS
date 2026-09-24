@@ -6,7 +6,11 @@
  * lets registration derive the tenant server-side instead of trusting the client to name it.
  */
 import { InstitutionModel, type InstitutionDocument } from '../models/Institution.model.js';
-import { DepartmentModel, type DepartmentAttrs, type DepartmentDocument } from '../models/Department.model.js';
+import {
+  DepartmentModel,
+  type DepartmentAttrs,
+  type DepartmentDocument,
+} from '../models/Department.model.js';
 import type { Timestamps } from '../models/base.js';
 import { TenantRepository, requireObjectId, toObjectId, type IdLike } from './base.repository.js';
 
@@ -22,6 +26,15 @@ class InstitutionRepository {
     const objectId = toObjectId(id);
     if (!objectId) return null;
     return InstitutionModel.findById(objectId).exec();
+  }
+
+  /**
+   * Every institution id. For platform maintenance jobs (orphan-file cleanup) that then work
+   * tenant by tenant through the scoped repositories — never for serving a request.
+   */
+  async listIds(): Promise<string[]> {
+    const rows = await InstitutionModel.find({}).select('_id').lean().exec();
+    return rows.map((row) => String(row._id));
   }
 
   async findBySlug(slug: string): Promise<InstitutionDocument | null> {

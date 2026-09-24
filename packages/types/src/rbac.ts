@@ -52,6 +52,10 @@ const COMMUNITY_BASE: readonly Permission[] = [
   Permission.NOTIFICATION_READ_SELF,
   Permission.SEARCH_QUERY,
   ...CHAT_BASE,
+  // Files ride along with chat and announcements, which are what they attach to. Who may open
+  // a given file is decided by what it is attached to, never by these.
+  Permission.FILE_UPLOAD,
+  Permission.FILE_READ,
 ];
 
 /** Academic reference data every member of the institution may look at. */
@@ -153,6 +157,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
     Permission.EVENT_REGISTER,
     Permission.NOTIFICATION_READ_SELF,
     Permission.SEARCH_QUERY,
+    // Alumni open announcement attachments addressed to them; they do not upload.
+    Permission.FILE_READ,
   ],
 };
 

@@ -12,6 +12,7 @@ import { qrRouter } from './qr.routes.js';
 import { academicsRouter } from './academics.routes.js';
 import { communityRouter } from './community.routes.js';
 import { chatRouter } from './chat.routes.js';
+import { fileContentRouter, fileRouter } from './file.routes.js';
 
 export const v1Router = Router();
 
@@ -43,7 +44,7 @@ v1Router.get('/meta', (_req, res) => {
       chat: true,
       realtime: true,
       // Part C-3.
-      fileSharing: false,
+      fileSharing: true,
     },
   });
 });
@@ -54,12 +55,19 @@ v1Router.use('/me', meRouter);
 v1Router.use('/admin', adminRouter);
 v1Router.use('/qr', qrRouter);
 
+// Signed-URL downloads carry no bearer token, so this must precede every router below that
+// authenticates all of its paths.
+v1Router.use('/', fileContentRouter);
+
 // --- Phase 3 Part A: Academics & Community -----------------------------------
 v1Router.use('/', academicsRouter);
 v1Router.use('/', communityRouter);
 
 // --- Phase 3 Part C-2: Chat ---------------------------------------------------
 v1Router.use('/', chatRouter);
+
+// --- Phase 3 Part C-3: Files --------------------------------------------------
+v1Router.use('/', fileRouter);
 
 // --- Feature routers (mounted in later phases) -------------------------------
 // Part B adds chat + files + realtime; see docs/api/API.md for the full planned map.

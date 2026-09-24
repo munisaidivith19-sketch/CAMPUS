@@ -33,6 +33,8 @@ export interface AnnouncementAttrs {
   publishAt: Date;
   expireAt?: Date | null;
   readBy: ObjectId[];
+  /** Attached files, in the order given (Part C-3). Access is inherited from the announcement. */
+  attachmentFileIds: ObjectId[];
 }
 
 const targetSchema = new Schema<AnnouncementTarget>(
@@ -63,6 +65,7 @@ const announcementSchema = new Schema<AnnouncementAttrs & Timestamps>(
     publishAt: { type: Date, required: true, default: () => new Date() },
     expireAt: { type: Date, default: null },
     readBy: { type: [Schema.Types.ObjectId], required: true, default: [] },
+    attachmentFileIds: { type: [Schema.Types.ObjectId], ref: 'File', default: [] },
   },
   { timestamps: true },
 );

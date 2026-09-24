@@ -11,7 +11,8 @@ import { z } from 'zod';
 // Resolve the monorepo root .env regardless of the process cwd (npm workspace scripts run
 // with cwd set to this package, not the repo root).
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-loadEnv({ path: path.resolve(__dirname, '../../../.env') });
+const REPO_ROOT = path.resolve(__dirname, '../../..');
+loadEnv({ path: path.resolve(REPO_ROOT, '.env') });
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -104,6 +105,72 @@ const envSchema = z.object({
   /** Optional Expo access token. Never hardcoded; absent is a valid, degraded configuration. */
   EXPO_ACCESS_TOKEN: z.string().optional(),
 
+  // --- File sharing (Phase 3 Part C-3) ----------------------------------------
+  /**
+   * Where file BYTES live. Only `local` is implemented; naming another driver fails the boot
+   * with "NOT CONFIGURED" rather than silently writing somewhere unexpected.
+   */
+  STORAGE_DRIVER: z.enum(['local', 's3', 'gcs', 'azure']).default('local'),
+  /**
+   * Outside anything served, git-ignored, created at boot. A relative value is resolved against
+   * the repository root (not the process cwd, which differs between npm scripts), so the path
+   * the server actually uses is always absolute and always the same one.
+   */
+  STORAGE_LOCAL_ROOT: z
+    .string()
+    .min(1)
+    .default('storage/files')
+    .transform((value) => (path.isAbsolute(value) ? value : path.resolve(REPO_ROOT, value))),
+  MAX_UPLOAD_BYTES: z.coerce.number().int().min(1024).max(1_073_741_824).default(26_214_400),
+  /** Allowlisted types, by extension. Each must be one the server knows how to verify. */
+  UPLOAD_ALLOWED_TYPES: z
+    .string()
+    .default('pdf,png,jpg,jpeg,webp,gif,docx,xlsx,pptx,txt,csv,zip')
+    .transform((s) =>
+      s
+        .split(',')
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  /** ZIP-bomb limits, applied to ZIPs and to Office (DOCX/XLSX/PPTX) containers alike. */
+  ZIP_MAX_ENTRIES: z.coerce.number().int().min(1).max(100_000).default(1_000),
+  ZIP_MAX_RATIO: z.coerce.number().min(1).max(10_000).default(100),
+  ZIP_MAX_TOTAL_BYTES: z.coerce.number().int().min(1024).default(209_715_200),
+  /** Lifetime of a signed download URL. */
+  FILE_DOWNLOAD_TOKEN_TTL_S: z.coerce.number().int().min(10).max(3_600).default(300),
+  /**
+   * Backend-only HMAC key for download URLs. Required in production. Every instance behind one
+   * deployment must share it, or a URL minted by one instance fails on another.
+   */
+  FILE_SIGNING_SECRET: z
+    .string()
+    .min(32, 'FILE_SIGNING_SECRET must be at least 32 characters')
+    .optional(),
+  /** Per-user storage allowance across their live files. */
+  USER_UPLOAD_QUOTA_BYTES: z.coerce.number().int().min(1024).default(209_715_200),
+  /** Uploads one user may start per hour. */
+  UPLOAD_RATE_PER_HOUR: z.coerce.number().int().min(1).max(10_000).default(60),
+  /** How long an uploaded-but-never-attached file survives before the cleanup job removes it. */
+  FILE_ORPHAN_TTL_HOURS: z.coerce
+    .number()
+    .min(0.001)
+    .max(24 * 30)
+    .default(24),
+  FILE_CLEANUP_INTERVAL_MS: z.coerce.number().int().min(1_000).max(86_400_000).default(3_600_000),
+
+  /**
+   * ClamAV (clamd INSTREAM). Disabled means uploads are recorded as SKIPPED — downloadable in
+   * development only, and labelled "not scanned". Enabled but unreachable means SCAN_FAILED,
+   * which is never downloadable.
+   */
+  CLAMAV_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  CLAMAV_HOST: z.string().default('localhost'),
+  CLAMAV_PORT: z.coerce.number().int().positive().default(3310),
+  CLAMAV_TIMEOUT_MS: z.coerce.number().int().min(100).max(300_000).default(30_000),
+
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
 
@@ -115,6 +182,24 @@ if (!parsed.success) {
 }
 
 const env = parsed.data;
+
+/**
+ * Cross-field rules the schema cannot express on its own. These fail the boot, like any other
+ * invalid configuration, rather than degrading quietly.
+ */
+const configProblems: string[] = [];
+if (env.STORAGE_DRIVER !== 'local') {
+  configProblems.push(
+    `STORAGE_DRIVER=${env.STORAGE_DRIVER} is NOT CONFIGURED — only "local" is implemented`,
+  );
+}
+if (env.NODE_ENV === 'production' && !env.FILE_SIGNING_SECRET) {
+  configProblems.push('FILE_SIGNING_SECRET is required in production');
+}
+if (configProblems.length > 0) {
+  console.error('❌ Invalid environment configuration:', configProblems);
+  process.exit(1);
+}
 
 export const config = Object.freeze({
   ...env,

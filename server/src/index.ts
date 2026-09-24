@@ -4,15 +4,24 @@ import { buildApp } from './app.js';
 import { config } from './config/env.js';
 import { connectDatabase, disconnectDatabase } from './db/connection.js';
 import { closeRedis } from './infra/redis.js';
-import { startDeliveryWorker, stopDeliveryWorker } from './services/notificationDelivery.service.js';
+import { initStorage } from './infra/storage/index.js';
+import { startFileCleanupWorker, stopFileCleanupWorker } from './jobs/fileCleanup.js';
+import {
+  startDeliveryWorker,
+  stopDeliveryWorker,
+} from './services/notificationDelivery.service.js';
 import { attachRealtime, closeRealtime, isRealtimeDegraded } from './sockets/index.js';
 import { logger } from './utils/logger.js';
 
 async function main(): Promise<void> {
   await connectDatabase();
 
+  // File bytes: make sure the storage root exists before the first upload arrives.
+  await initStorage();
+
   // Picks up anything a previous process left queued before serving traffic.
   startDeliveryWorker();
+  startFileCleanupWorker();
 
   const app = buildApp();
   const server = createServer(app);
@@ -30,6 +39,7 @@ async function main(): Promise<void> {
     logger.info({ signal }, 'Shutting down…');
     server.close();
     stopDeliveryWorker();
+    stopFileCleanupWorker();
     await closeRealtime();
     await disconnectDatabase();
     await closeRedis();

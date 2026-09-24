@@ -26,3 +26,16 @@ export const institutionEmailSchema = (domain: string) =>
     .refine((e) => e.endsWith(`@${domain.toLowerCase()}`), {
       message: `Email must be on the @${domain} domain`,
     });
+
+/**
+ * A list of uploaded-file ids to attach to something. Distinct and capped; whether each id is
+ * really the caller's own, clean, unlinked file is decided by the server, never by this schema.
+ */
+export const attachmentIdsSchema = (max: number) =>
+  z
+    .array(objectIdSchema)
+    .max(max, `At most ${max} attachments`)
+    .refine((ids) => new Set(ids.map((id) => id.toLowerCase())).size === ids.length, {
+      message: 'Duplicate attachment',
+    })
+    .default([]);

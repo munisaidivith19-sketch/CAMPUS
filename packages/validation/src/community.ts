@@ -14,7 +14,8 @@ import {
   Role,
   SearchResultKind,
 } from '@campusconnect/types';
-import { objectIdSchema, paginationQuerySchema } from './common.js';
+import { UPLOAD } from '@campusconnect/config';
+import { attachmentIdsSchema, objectIdSchema, paginationQuerySchema } from './common.js';
 
 // --- Announcements -----------------------------------------------------------
 
@@ -64,6 +65,7 @@ export const createAnnouncementSchema = z
     target: announcementTargetSchema,
     publishAt: z.coerce.date().optional(),
     expireAt: z.coerce.date().optional(),
+    attachmentFileIds: attachmentIdsSchema(UPLOAD.ANNOUNCEMENT_MAX_ATTACHMENTS),
   })
   .refine((v) => !v.expireAt || !v.publishAt || v.expireAt > v.publishAt, {
     message: 'expireAt must be after publishAt',

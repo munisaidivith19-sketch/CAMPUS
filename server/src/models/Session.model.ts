@@ -46,6 +46,8 @@ const sessionSchema = new Schema<SessionAttrs & Timestamps>(
 );
 
 sessionSchema.index({ institutionId: 1, userId: 1, revokedAt: 1 });
+// Institution-wide live-session count for the principal's security summary.
+sessionSchema.index({ institutionId: 1, revokedAt: 1, expiresAt: 1 });
 // Refresh lookup is by token hash; the hash is globally unique by construction.
 sessionSchema.index({ refreshTokenHash: 1 });
 sessionSchema.index({ usedTokenHashes: 1 });

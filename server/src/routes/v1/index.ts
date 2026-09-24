@@ -13,6 +13,7 @@ import { academicsRouter } from './academics.routes.js';
 import { communityRouter } from './community.routes.js';
 import { chatRouter } from './chat.routes.js';
 import { fileContentRouter, fileRouter } from './file.routes.js';
+import { dashboardRouter } from './dashboard.routes.js';
 
 export const v1Router = Router();
 
@@ -45,6 +46,8 @@ v1Router.get('/meta', (_req, res) => {
       realtime: true,
       // Part C-3.
       fileSharing: true,
+      moderationQueue: true,
+      dashboards: true,
     },
   });
 });
@@ -68,6 +71,9 @@ v1Router.use('/', chatRouter);
 
 // --- Phase 3 Part C-3: Files --------------------------------------------------
 v1Router.use('/', fileRouter);
+
+// --- Phase 3 completion: role dashboards ---------------------------------------
+v1Router.use('/', dashboardRouter);
 
 // --- Feature routers (mounted in later phases) -------------------------------
 // Part B adds chat + files + realtime; see docs/api/API.md for the full planned map.

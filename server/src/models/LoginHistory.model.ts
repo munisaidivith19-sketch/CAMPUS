@@ -35,6 +35,8 @@ const loginHistorySchema = new Schema<LoginHistoryAttrs & Timestamps>(
 );
 
 loginHistorySchema.index({ institutionId: 1, userId: 1, at: -1 });
+// Institution-wide sign-in counts for the principal's security summary.
+loginHistorySchema.index({ institutionId: 1, at: -1 });
 
 export type LoginHistoryDocument = HydratedDocument<LoginHistoryAttrs & Timestamps>;
 export const LoginHistoryModel = defineModel<LoginHistoryAttrs & Timestamps>(

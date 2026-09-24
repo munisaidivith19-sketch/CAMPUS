@@ -167,6 +167,19 @@ Announcement also gains `attachmentFileIds[→File]` (≤ 10, order only).
 - **InstitutionSubscription** — → institution, plan, limits{seats, storage}, status, period.
 - **StorageUsage** — → institution, usedBytes, updatedAt.
 
+## Indexes added for the role dashboards (Phase 3 completion)
+
+| Collection   | Index                                   | Why                                                                                                        |
+| ------------ | --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| LoginHistory | `{institutionId, at: -1}`               | The principal's sign-in / failed-sign-in counts over the last 24 h, without scanning every user's history. |
+| Session      | `{institutionId, revokedAt, expiresAt}` | The live-session count for the principal's security summary.                                               |
+
+Every dashboard aggregation starts with `$match: {institutionId}` on an existing tenant-leading
+index (Attendance `{institutionId, classId, date}` / `{institutionId, studentUserId, …}`, Event
+`{institutionId, status, startsAt}`, ClubMembership `{institutionId, clubId, status}`,
+EventRegistration `{institutionId, eventId, status}`). The department roll-up groups attendance
+by class first, then looks each class up by `_id`, so the join runs per class, not per record.
+
 ## Indexing strategy (representative)
 
 - **Every tenant-scoped collection:** compound index **leading with `institutionId`**, then the

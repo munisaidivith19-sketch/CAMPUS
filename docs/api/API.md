@@ -243,6 +243,25 @@ Unattached uploads older than `FILE_ORPHAN_TTL_HOURS` are removed by a multi-ins
 
 Announcements have no delete endpoint in Phase 3, so their attachments live as long as they do.
 
+### Role dashboards — **IMPLEMENTED (Phase 3 completion)**
+
+One aggregation endpoint per role. Two gates: the permission that opens the door, then a
+**role check** in the service (a student asking for `/dashboards/hod` gets `403
+AUTHORIZATION_DENIED`, the convention for a same-tenant capability you lack). After that, the
+response is **narrowed to the caller's scope** through the existing resolvers. A mentor with no
+section, or an HOD with no department, gets an empty dashboard, never a wider one. Lists are
+capped (≤ 10, events ≤ 5). Attendance is SUM/SUM: every percentage travels with `present` and
+`total`, and combined figures are re-derived from counts.
+
+| Method | Path                     | Permission              | Role                         | Contents                                                                                                                                                                           |
+| ------ | ------------------------ | ----------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/dashboards/student`    | `attendance:read:self`  | STUDENT                      | Overall + per-subject attendance with below-75 % flags, today's timetable, unread/latest announcements, upcoming registered events, clubs, unread notifications and chat messages. |
+| GET    | `/dashboards/faculty`    | `attendance:mark`       | FACULTY / CLASS_MENTOR / HOD | Today's classes with marked/unmarked state, number still to mark, pending corrections (scope), classes taught, below-threshold students **in their own classes**.                  |
+| GET    | `/dashboards/mentor`     | `attendance:read:scope` | CLASS_MENTOR                 | Section, roster size, section attendance, below-threshold students, pending corrections, recent section announcements.                                                             |
+| GET    | `/dashboards/hod`        | `attendance:read:scope` | HOD                          | Department attendance overall and by class, faculty with class counts, upcoming department events, pending corrections.                                                            |
+| GET    | `/dashboards/principal`  | `attendance:read:scope` | PRINCIPAL / SYSTEM_ADMIN     | College attendance overall and by department, events this month, club activity, moderation queue size, security summary (active sessions, sign-ins and failures in 24 h).          |
+| GET    | `/dashboards/club-admin` | `club:manage`           | administers a club           | Their clubs: members, pending requests, recent/upcoming events with registrations and check-ins.                                                                                   |
+
 ### Campus operations & career [P4]
 
 - **Reusable workflow:** `POST /requests` (type=gate|hostel_leave|…), `GET /requests`,

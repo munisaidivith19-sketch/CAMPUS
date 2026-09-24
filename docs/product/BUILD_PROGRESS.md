@@ -9,7 +9,7 @@ only when its definition of done holds **and** its commits exist on `main`.
 | M1  | Fix `npm start` / real package builds                       | ✅     | de869c6       | 441 (7 skipped) |
 | M2  | Secure file sharing (+ chat & announcement attachments)     | ✅     | (see git log) | 520 (9 skipped) |
 | M3  | Moderation queue UI + chat reports + leave club             | ✅     | (see git log) | 547 (9 skipped) |
-| M4  | Phase 3 role dashboards                                     | ⬜     |               |                 |
+| M4  | Phase 3 role dashboards                                     | ✅     | (see git log) | 559 (9 skipped) |
 | M5  | Playwright E2E                                              | ⬜     |               |                 |
 | M6  | Close Phase 3                                               | ⬜     |               |                 |
 | M7  | Digital Permission Engine                                   | ⬜     |               |                 |
@@ -102,6 +102,43 @@ rejoin request → status                                    201
 ravi (other tenant, student) GET queue → status            403
 ```
 
+## M4 live check (2026-09-24)
+
+Two instances, `campusconnect_live` freshly seeded. Every seeded role's dashboard, requests
+alternating between instances:
+
+```
+student (bhavana) overall attendance                       90% (90/100)
+  per subject                                              ["CS301:90% (18/20)","CS302:90% (18/20)","CS303:90% (18/20)","CS304:90% (18/20)","CS305:90% (18/20)"]
+  today / unread ann / clubs / unread notif                5 / 2 /  / 0
+student → /dashboards/hod                                  403
+faculty (vikram): classes, to-mark, corrections, low       2, 0, 0, 2
+mentor (meera): section, roster, section attendance        2022-2026 A, 8, 85% (680/800)
+  low attendance                                           ["1JN22CS006:66%","1JN22CS005:67%"]
+hod (rajesh): department, attendance                       CSE, 85% (680/800)
+  by class                                                 ["CS301 A:85% (136/160)","CS302 A:85% (136/160)","CS303 A:85.63% (137/160)","CS304 A:85% (136/160)","CS305 A:84.38% (135/160)"]
+principal: college attendance                              85% (680/800)
+  by department                                            ["CSE:85% (680/800)"]
+  events this month / moderation queue                     1 / 2
+  security                                                 {"activeSessions":25,"loginsLast24h":25,"failedLoginsLast24h":0}
+  SUM of departments == college (present/total)            680/800 vs 680/800
+club admin (meera administers)                             ["Coding Club: 4 members, 0 pending, 1 events","Robotics Society: 0 members, 1 pending, 0 events","Music Club: 0 members, 0 pending, 1 events","Photography Circle: 0 members, 0 pending, 0 events"]
+file:///C:/Users/KMSD/AppData/Local/Temp/claude/d--POJECTS-AI-ATDDENCE-CAMPUS/57360ca6-0df0-486d-bdd3-7966db0a475a/scratchpad/live/lib.mjs:41
+  if (res.status !== 200) throw new Error(`login ${email}: ${res.status} ${res.text}`);
+                                ^
+
+Error: login ravi.student@riverside.test: 429 {"success":false,"error":{"code":"RATE_LIMITED","message":"Too many requests."},"requestId":"req_25ac3ce0-fe2a-4c48-8867-7f4d975369d7"}
+    at login (file:///C:/Users/KMSD/AppData/Local/Temp/claude/d--POJECTS-AI-ATDDENCE-CAMPUS/57360ca6-0df0-486d-bdd3-7966db0a475a/scratchpad/live/lib.mjs:41:33)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Users/KMSD/AppData/Local/Temp/claude/d--POJECTS-AI-ATDDENCE-CAMPUS/57360ca6-0df0-486d-bdd3-7966db0a475a/scratchpad/live/live-m4.mjs:42:14
+
+Node.js v24.15.0
+other-tenant student: attendance total / clubs / announcements 0 / 0 / 0
+```
+
+The college figure equals the sum of the department counts (680/800), i.e. SUM/SUM, not an
+average of department percentages.
+
 ## Decisions taken
 
 - **M0 — branch.** The local branch is `sai` and tracks `origin/main`. Pushing means
@@ -177,6 +214,25 @@ ravi (other tenant, student) GET queue → status            403
   without the storage source. Fixed by anchoring it to `/storage/`, pushed right after
   (0880d1f).
 
+- **M4 — dashboards gated by role, then scope-narrowed.** Each route requires the permission its
+  data needs (`attendance:read:self` / `attendance:mark` / `attendance:read:scope` /
+  `club:manage`), and the service checks the role (403 AUTHORIZATION_DENIED otherwise). No new
+  permissions.
+- **M4 — faculty "low attendance" covers only their own classes**, not the student's record
+  across all subjects. Mentor, HOD and principal get the wider views.
+- **M4 — no charting library.** Charts are the existing accessible `AttendanceMeter` bars
+  (`role="meter"`) with the percentage and raw counts always printed, plus stat cards. Status is
+  shown as text, not colour alone.
+- **M4 — role switcher.** The landing page opens the primary role's dashboard, with tabs for any
+  other roles held.
+- **M4 — seeded club admin gets `CLUB_ADMIN`.** The mentor administered clubs but lacked
+  `club:manage`, so could neither approve members nor open the club-admin dashboard (a
+  pre-existing seed inconsistency, found by the live check).
+- **M4 — two indexes added:** `LoginHistory {institutionId, at}` and
+  `Session {institutionId, revokedAt, expiresAt}`, for the principal's security summary.
+- **M3/M4 — whole-directory prettier sweeps** reformatted some pre-existing web and doc files in
+  those commits. Formatting only.
+
 ## Blocked / needs owner
 
 - **The dev database `campusconnect` on the local MongoDB holds another app's data.** Its
@@ -198,7 +254,7 @@ ravi (other tenant, student) GET queue → status            403
   SCAN_FAILED. The fake clamd in the tests tolerated it. Found only by the live check. Fixed
   (write the terminator, wait for the NUL-terminated reply), and it's now covered by the gated
   live suite.
-- **M2 — the first full run after M2 had one "Worker exited unexpectedly"** partway through,
+- **Intermittent "Worker exited unexpectedly" (seen twice: once mid-run in M2, once at start in M4), no failing assertion; reruns are clean.** A live script on the same machine then aborted on exit with the libuv assertion `!(handle->flags & UV_HANDLE_CLOSING)` in `src\winsync.c`, a known Node 24-on-Windows exit-path bug. That's the likely cause (the machine runs Node v24.15.0; CI and `engines` target Node 20). No code change masks it. Owner: prefer Node 20/22 LTS locally. Original M2 note: the first full run after M2 had one "Worker exited unexpectedly"** partway through,
   with no failing assertion. The next full run was clean (520/520). It didn't reproduce. I'm
   watching it in the M6 five-run check.
 - **M2 — `cc-mongodb` (Docker) came back when Docker Desktop started** and listened on

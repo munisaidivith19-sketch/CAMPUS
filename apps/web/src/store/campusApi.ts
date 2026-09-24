@@ -23,6 +23,8 @@ import type {
   DiscussionDTO,
   EventDTO,
   EventRegistrationDTO,
+  ModerationActionDTO,
+  ModerationQueueItemDTO,
   NotificationDTO,
   SearchResultDTO,
   SubjectDTO,
@@ -49,7 +51,12 @@ export interface ClassRoster {
   subject: { id: string; code: string; name: string } | null;
   date: string;
   period: number;
-  students: Array<{ userId: string; rollNo: string; fullName: string; status: AttendanceStatus | null }>;
+  students: Array<{
+    userId: string;
+    rollNo: string;
+    fullName: string;
+    status: AttendanceStatus | null;
+  }>;
 }
 
 export interface ModerationQueue {
@@ -201,9 +208,11 @@ export const campusApi = createApi({
       query: (id) => ({ url: `/events/${id}/register`, method: 'POST' }),
       invalidatesTags: ['Events'],
     }),
-    issueEventQr: builder.mutation<{ token: string; expiresAt: string; qrDataUrl: string }, string>({
-      query: (id) => ({ url: `/events/${id}/qr`, method: 'POST' }),
-    }),
+    issueEventQr: builder.mutation<{ token: string; expiresAt: string; qrDataUrl: string }, string>(
+      {
+        query: (id) => ({ url: `/events/${id}/qr`, method: 'POST' }),
+      },
+    ),
     checkInAttendee: builder.mutation<
       { eventTitle: string; attendee: { fullName: string; rollNo: string | null } },
       { eventId: string; token: string }
@@ -250,10 +259,37 @@ export const campusApi = createApi({
     }),
     reportContent: builder.mutation<
       { status: string },
-      { targetType: 'DISCUSSION' | 'COMMENT'; targetId: string; reason: string }
+      { targetType: 'DISCUSSION' | 'COMMENT' | 'CHAT_MESSAGE'; targetId: string; reason: string }
     >({
       query: (body) => ({ url: '/reports', method: 'POST', data: body }),
       invalidatesTags: ['Discussions', 'Comments', 'Moderation'],
+    }),
+
+    // --- Moderation queue (scope-narrowed by the server) -----------------------
+    getModerationReports: builder.query<
+      ModerationQueueItemDTO[],
+      { status?: 'OPEN' | 'ACTIONED' | 'DISMISSED' } | void
+    >({
+      query: (args) => ({
+        url: '/moderation/reports',
+        params: { limit: 50, status: args?.status ?? 'OPEN' },
+      }),
+      providesTags: ['Moderation'],
+    }),
+    getModerationHistory: builder.query<ModerationActionDTO[], void>({
+      query: () => ({ url: '/moderation/history', params: { limit: 50 } }),
+      providesTags: ['Moderation'],
+    }),
+    decideReport: builder.mutation<
+      { status: 'REMOVED' | 'DISMISSED'; closedReports: number },
+      { targetType: string; targetId: string; action: 'REMOVE' | 'DISMISS'; note?: string }
+    >({
+      query: (body) => ({ url: '/moderation/reports/decide', method: 'POST', data: body }),
+      invalidatesTags: ['Moderation', 'Discussions', 'Comments'],
+    }),
+    leaveClub: builder.mutation<{ status: string }, string>({
+      query: (id) => ({ url: `/clubs/${id}/leave`, method: 'POST' }),
+      invalidatesTags: ['Clubs'],
     }),
 
     // --- Notifications & search ----------------------------------------------
@@ -308,6 +344,10 @@ export const {
   useAddCommentMutation,
   useToggleReactionMutation,
   useReportContentMutation,
+  useGetModerationReportsQuery,
+  useGetModerationHistoryQuery,
+  useDecideReportMutation,
+  useLeaveClubMutation,
   useGetNotificationsQuery,
   useMarkNotificationReadMutation,
   useMarkAllNotificationsReadMutation,

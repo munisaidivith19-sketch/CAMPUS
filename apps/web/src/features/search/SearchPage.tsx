@@ -54,7 +54,9 @@ export function SearchPage(): JSX.Element {
       {term.trim().length >= 2 && (
         <SectionCard title={`Results for “${term}”`}>
           {results.isLoading && <SkeletonRows rows={3} />}
-          {results.isError && <ErrorState message="Search failed." onRetry={() => void results.refetch()} />}
+          {results.isError && (
+            <ErrorState message="Search failed." onRetry={() => void results.refetch()} />
+          )}
           {results.data?.length === 0 && (
             <EmptyState title="No matches" description="Try a different word." />
           )}
@@ -62,10 +64,16 @@ export function SearchPage(): JSX.Element {
           {results.data && results.data.length > 0 && (
             <ul className="space-y-2">
               {results.data.map((result) => (
-                <li key={`${result.kind}-${result.id}`} className="rounded-lg border border-white/10 px-4 py-3">
+                <li
+                  key={`${result.kind}-${result.id}`}
+                  className="rounded-lg border border-white/10 px-4 py-3"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <Link to={result.link} className="text-sm font-medium text-neutral-100 hover:underline">
+                      <Link
+                        to={result.link}
+                        className="text-sm font-medium text-neutral-100 hover:underline"
+                      >
                         {result.title}
                       </Link>
                       <p className="mt-1 text-sm text-neutral-400">{result.snippet}</p>

@@ -47,9 +47,7 @@ function TodayPanel(): JSX.Element {
     >
       {timetable.isLoading && <SkeletonRows rows={2} />}
       {timetable.isError && <ErrorState message="Could not load your timetable." />}
-      {timetable.data && today.length === 0 && (
-        <EmptyState title="No classes scheduled today" />
-      )}
+      {timetable.data && today.length === 0 && <EmptyState title="No classes scheduled today" />}
 
       {today.length > 0 && (
         <ul className="space-y-2">
@@ -88,7 +86,9 @@ function StudentAttendancePanel(): JSX.Element {
       }
     >
       {summary.isLoading && <SkeletonRows rows={2} />}
-      {summary.isError && <ErrorState message="Could not load attendance." onRetry={() => void summary.refetch()} />}
+      {summary.isError && (
+        <ErrorState message="Could not load attendance." onRetry={() => void summary.refetch()} />
+      )}
 
       {overview && (
         <div className="space-y-4">
@@ -133,14 +133,20 @@ function CohortPanel({ title }: { title: string }): JSX.Element {
     { present: 0, total: 0 },
   );
   // Aggregate from summed counts, never from a mean of the per-student percentages.
-  const aggregate = totals.total === 0 ? 0 : Math.round((totals.present / totals.total) * 10_000) / 100;
+  const aggregate =
+    totals.total === 0 ? 0 : Math.round((totals.present / totals.total) * 10_000) / 100;
 
   return (
     <SectionCard title={title}>
       {cohort.isLoading && <SkeletonRows rows={3} />}
-      {cohort.isError && <ErrorState message="Could not load the cohort." onRetry={() => void cohort.refetch()} />}
+      {cohort.isError && (
+        <ErrorState message="Could not load the cohort." onRetry={() => void cohort.refetch()} />
+      )}
       {cohort.data?.students.length === 0 && (
-        <EmptyState title="No attendance recorded yet" description="Figures appear once periods are marked." />
+        <EmptyState
+          title="No attendance recorded yet"
+          description="Figures appear once periods are marked."
+        />
       )}
 
       {cohort.data && cohort.data.students.length > 0 && (
@@ -197,7 +203,9 @@ function TeachingPanel(): JSX.Element {
       }
     >
       {classes.isLoading && <SkeletonRows rows={2} />}
-      {classes.isError && <ErrorState message="Could not load classes." onRetry={() => void classes.refetch()} />}
+      {classes.isError && (
+        <ErrorState message="Could not load classes." onRetry={() => void classes.refetch()} />
+      )}
       {classes.data?.length === 0 && <EmptyState title="No classes assigned" />}
 
       {classes.data && classes.data.length > 0 && (
@@ -260,7 +268,8 @@ function AnnouncementsPanel(): JSX.Element {
                 )}
               </p>
               <p className="mt-0.5 text-xs text-neutral-400">
-                {announcement.author.fullName} · {new Date(announcement.publishAt).toLocaleDateString()}
+                {announcement.author.fullName} ·{' '}
+                {new Date(announcement.publishAt).toLocaleDateString()}
               </p>
             </li>
           ))}
@@ -293,7 +302,9 @@ function EventsPanel(): JSX.Element {
               className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 px-4 py-2.5 text-sm"
             >
               <span className="font-medium text-neutral-100">{event.title}</span>
-              <span className="text-neutral-400">{new Date(event.startsAt).toLocaleDateString()}</span>
+              <span className="text-neutral-400">
+                {new Date(event.startsAt).toLocaleDateString()}
+              </span>
               {event.registration && <Badge tone="good">Registered</Badge>}
             </li>
           ))}

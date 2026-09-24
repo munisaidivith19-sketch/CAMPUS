@@ -31,7 +31,9 @@ export function RegisterPage(): JSX.Element {
     const parsed = registerSchema.safeParse({ fullName, email, password });
     if (!parsed.success) {
       setFieldErrors(
-        Object.fromEntries(parsed.error.issues.map((issue) => [String(issue.path[0]), issue.message])),
+        Object.fromEntries(
+          parsed.error.issues.map((issue) => [String(issue.path[0]), issue.message]),
+        ),
       );
       return;
     }

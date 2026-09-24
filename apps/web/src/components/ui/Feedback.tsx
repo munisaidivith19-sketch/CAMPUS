@@ -17,7 +17,13 @@ const TONES: Record<Tone, string> = {
   warning: 'border-warning-500/40 bg-warning-500/10 text-warning-500',
 };
 
-export function Alert({ tone = 'info', children }: { tone?: Tone; children: ReactNode }): JSX.Element {
+export function Alert({
+  tone = 'info',
+  children,
+}: {
+  tone?: Tone;
+  children: ReactNode;
+}): JSX.Element {
   return (
     <div
       role={tone === 'error' ? 'alert' : 'status'}
@@ -51,7 +57,13 @@ export function SkeletonRows({ rows = 3 }: { rows?: number }): JSX.Element {
   );
 }
 
-export function EmptyState({ title, description }: { title: string; description?: string }): JSX.Element {
+export function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}): JSX.Element {
   return (
     <div className="rounded-lg border border-dashed border-white/15 px-4 py-10 text-center">
       <p className="text-sm font-medium text-neutral-200">{title}</p>
@@ -60,9 +72,18 @@ export function EmptyState({ title, description }: { title: string; description?
   );
 }
 
-export function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }): JSX.Element {
+export function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry?: () => void;
+}): JSX.Element {
   return (
-    <div role="alert" className="rounded-lg border border-danger-500/40 bg-danger-500/10 px-4 py-6 text-center">
+    <div
+      role="alert"
+      className="rounded-lg border border-danger-500/40 bg-danger-500/10 px-4 py-6 text-center"
+    >
       <p className="text-sm text-danger-500">{message}</p>
       {onRetry && (
         <button

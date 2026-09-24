@@ -15,7 +15,13 @@ import {
   useMarkAttendanceMutation,
 } from '../../store/campusApi.js';
 import { Badge, PageHeader, SectionCard } from '../../components/ui/DataDisplay.js';
-import { Alert, EmptyState, ErrorState, SkeletonRows, Spinner } from '../../components/ui/Feedback.js';
+import {
+  Alert,
+  EmptyState,
+  ErrorState,
+  SkeletonRows,
+  Spinner,
+} from '../../components/ui/Feedback.js';
 import { Button } from '../../components/ui/Button.js';
 
 function todayIso(): string {
@@ -53,7 +59,10 @@ function RosterForm({ klass }: { klass: ClassDTO }): JSX.Element {
         classId: klass.id,
         date,
         period,
-        records: Object.entries(statuses).map(([studentUserId, status]) => ({ studentUserId, status })),
+        records: Object.entries(statuses).map(([studentUserId, status]) => ({
+          studentUserId,
+          status,
+        })),
       }).unwrap();
 
       setNotice(
@@ -67,7 +76,9 @@ function RosterForm({ klass }: { klass: ClassDTO }): JSX.Element {
 
   if (roster.isLoading) return <Spinner label="Loading roster…" />;
   if (roster.isError || !roster.data) {
-    return <ErrorState message="Could not load the roster." onRetry={() => void roster.refetch()} />;
+    return (
+      <ErrorState message="Could not load the roster." onRetry={() => void roster.refetch()} />
+    );
   }
 
   const present = Object.values(statuses).filter((s) => s === AttendanceStatus.PRESENT).length;
@@ -110,10 +121,15 @@ function RosterForm({ klass }: { klass: ClassDTO }): JSX.Element {
                 className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 px-4 py-2.5"
               >
                 <span className="text-sm text-neutral-100">
-                  <span className="font-mono text-neutral-400">{student.rollNo}</span> {student.fullName}
+                  <span className="font-mono text-neutral-400">{student.rollNo}</span>{' '}
+                  {student.fullName}
                 </span>
 
-                <div className="flex gap-2" role="group" aria-label={`Attendance for ${student.fullName}`}>
+                <div
+                  className="flex gap-2"
+                  role="group"
+                  aria-label={`Attendance for ${student.fullName}`}
+                >
                   {[AttendanceStatus.PRESENT, AttendanceStatus.ABSENT].map((option) => (
                     <button
                       key={option}
@@ -157,7 +173,12 @@ export function MarkAttendancePage(): JSX.Element {
 
       <SectionCard title="Your classes">
         {classes.isLoading && <SkeletonRows rows={3} />}
-        {classes.isError && <ErrorState message="Could not load your classes." onRetry={() => void classes.refetch()} />}
+        {classes.isError && (
+          <ErrorState
+            message="Could not load your classes."
+            onRetry={() => void classes.refetch()}
+          />
+        )}
         {classes.data?.length === 0 && (
           <EmptyState title="No classes assigned" description="An HOD assigns teaching classes." />
         )}
@@ -217,7 +238,9 @@ export function CorrectionsPage(): JSX.Element {
 
       <SectionCard title="Pending">
         {queue.isLoading && <SkeletonRows rows={3} />}
-        {queue.isError && <ErrorState message="Could not load the queue." onRetry={() => void queue.refetch()} />}
+        {queue.isError && (
+          <ErrorState message="Could not load the queue." onRetry={() => void queue.refetch()} />
+        )}
         {queue.data?.length === 0 && <EmptyState title="Nothing to review" />}
 
         {queue.data && queue.data.length > 0 && (
@@ -230,8 +253,8 @@ export function CorrectionsPage(): JSX.Element {
                       {correction.requestedByName} · {correction.subject?.code ?? '—'}
                     </p>
                     <p className="mt-0.5 text-xs text-neutral-400">
-                      {correction.date ? new Date(correction.date).toLocaleDateString() : '—'} · period{' '}
-                      {correction.period} · asking to change{' '}
+                      {correction.date ? new Date(correction.date).toLocaleDateString() : '—'} ·
+                      period {correction.period} · asking to change{' '}
                       <Badge tone="bad">{correction.oldValue}</Badge> to{' '}
                       <Badge tone="good">{correction.newValue}</Badge>
                     </p>
@@ -241,12 +264,18 @@ export function CorrectionsPage(): JSX.Element {
                     <Button busy={isLoading} onClick={() => void act(correction.id, 'APPROVED')}>
                       Approve
                     </Button>
-                    <Button variant="secondary" busy={isLoading} onClick={() => void act(correction.id, 'REJECTED')}>
+                    <Button
+                      variant="secondary"
+                      busy={isLoading}
+                      onClick={() => void act(correction.id, 'REJECTED')}
+                    >
                       Reject
                     </Button>
                   </div>
                 </div>
-                <p className="mt-3 rounded bg-white/5 p-3 text-sm text-neutral-300">{correction.reason}</p>
+                <p className="mt-3 rounded bg-white/5 p-3 text-sm text-neutral-300">
+                  {correction.reason}
+                </p>
               </li>
             ))}
           </ul>

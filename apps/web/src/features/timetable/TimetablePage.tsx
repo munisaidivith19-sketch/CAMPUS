@@ -39,7 +39,9 @@ export function TimetablePage(): JSX.Element {
                   className={[
                     'rounded-lg px-3 py-1.5 text-sm transition',
                     'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-300',
-                    scope === option ? 'bg-brand-500/20 text-white' : 'text-neutral-300 hover:bg-white/10',
+                    scope === option
+                      ? 'bg-brand-500/20 text-white'
+                      : 'text-neutral-300 hover:bg-white/10',
                   ].join(' ')}
                 >
                   {option === 'FACULTY' ? 'My schedule' : 'Section'}
@@ -53,7 +55,10 @@ export function TimetablePage(): JSX.Element {
       <SectionCard title="Weekly grid">
         {timetable.isLoading && <SkeletonRows rows={4} />}
         {timetable.isError && (
-          <ErrorState message="Could not load the timetable." onRetry={() => void timetable.refetch()} />
+          <ErrorState
+            message="Could not load the timetable."
+            onRetry={() => void timetable.refetch()}
+          />
         )}
         {timetable.data && entries.length === 0 && (
           <EmptyState
@@ -68,7 +73,10 @@ export function TimetablePage(): JSX.Element {
               <caption className="sr-only">Weekly timetable by day and period</caption>
               <thead>
                 <tr>
-                  <th scope="col" className="p-2 text-left text-xs uppercase tracking-wide text-neutral-400">
+                  <th
+                    scope="col"
+                    className="p-2 text-left text-xs uppercase tracking-wide text-neutral-400"
+                  >
                     Day
                   </th>
                   {periods.map((period) => (
@@ -99,8 +107,12 @@ export function TimetablePage(): JSX.Element {
                             {entry ? (
                               <div className="rounded-lg bg-white/5 p-2">
                                 <p className="font-medium text-neutral-100">{entry.subject.code}</p>
-                                <p className="text-xs text-neutral-400">{entry.facultyName ?? 'Unassigned'}</p>
-                                {entry.room && <p className="text-xs text-neutral-500">{entry.room}</p>}
+                                <p className="text-xs text-neutral-400">
+                                  {entry.facultyName ?? 'Unassigned'}
+                                </p>
+                                {entry.room && (
+                                  <p className="text-xs text-neutral-500">{entry.room}</p>
+                                )}
                               </div>
                             ) : (
                               <span className="text-neutral-600">—</span>

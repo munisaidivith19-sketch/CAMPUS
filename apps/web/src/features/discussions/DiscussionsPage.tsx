@@ -190,9 +190,19 @@ export function DiscussionsPage(): JSX.Element {
         <SectionCard title="New discussion">
           <form onSubmit={(e) => void submit(e)} className="space-y-4" noValidate>
             {error && <Alert tone="error">{error}</Alert>}
-            <Input label="Title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+            <Input
+              label="Title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+            />
             <Input label="Body" value={body} onChange={(e) => setBody(e.target.value)} required />
-            <Input label="Category" value={category} onChange={(e) => setCategory(e.target.value)} required />
+            <Input
+              label="Category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              required
+            />
             <Button type="submit" busy={isLoading}>
               Post discussion
             </Button>
@@ -203,7 +213,10 @@ export function DiscussionsPage(): JSX.Element {
       <SectionCard title="Recent">
         {discussions.isLoading && <SkeletonRows rows={3} />}
         {discussions.isError && (
-          <ErrorState message="Could not load discussions." onRetry={() => void discussions.refetch()} />
+          <ErrorState
+            message="Could not load discussions."
+            onRetry={() => void discussions.refetch()}
+          />
         )}
         {discussions.data?.length === 0 && (
           <EmptyState title="No discussions yet" description="Be the first to start one." />

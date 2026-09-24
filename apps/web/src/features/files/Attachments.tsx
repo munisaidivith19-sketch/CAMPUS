@@ -12,7 +12,10 @@ import { Badge } from '../../components/ui/DataDisplay.js';
 import { Button } from '../../components/ui/Button.js';
 import { UploadError, downloadFile, formatBytes, precheck, uploadFile } from './fileClient.js';
 
-const SCAN_LABEL: Record<FileScanStatus, { text: string; tone: 'good' | 'warn' | 'bad' | 'neutral' }> = {
+const SCAN_LABEL: Record<
+  FileScanStatus,
+  { text: string; tone: 'good' | 'warn' | 'bad' | 'neutral' }
+> = {
   CLEAN: { text: 'Scanned', tone: 'good' },
   SKIPPED: { text: 'Not scanned', tone: 'warn' },
   PENDING: { text: 'Scanning', tone: 'neutral' },
@@ -24,7 +27,9 @@ export function AttachmentCard({ attachment }: { attachment: AttachmentDTO }): J
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const label = SCAN_LABEL[attachment.scanStatus];
-  const downloadable = attachment.scanStatus === FileScanStatus.CLEAN || attachment.scanStatus === FileScanStatus.SKIPPED;
+  const downloadable =
+    attachment.scanStatus === FileScanStatus.CLEAN ||
+    attachment.scanStatus === FileScanStatus.SKIPPED;
 
   const onDownload = (): void => {
     setBusy(true);
@@ -51,14 +56,24 @@ export function AttachmentCard({ attachment }: { attachment: AttachmentDTO }): J
           </p>
         )}
       </div>
-      <Button variant="secondary" onClick={onDownload} disabled={!downloadable} busy={busy} aria-label={`Download ${attachment.name}`}>
+      <Button
+        variant="secondary"
+        onClick={onDownload}
+        disabled={!downloadable}
+        busy={busy}
+        aria-label={`Download ${attachment.name}`}
+      >
         Download
       </Button>
     </div>
   );
 }
 
-export function AttachmentList({ attachments }: { attachments: AttachmentDTO[] }): JSX.Element | null {
+export function AttachmentList({
+  attachments,
+}: {
+  attachments: AttachmentDTO[];
+}): JSX.Element | null {
   if (attachments.length === 0) return null;
   return (
     <ul className="mt-2 space-y-2" aria-label="Attachments">
@@ -96,7 +111,9 @@ export function useAttachmentUploads(max: number): {
   const [uploads, setUploads] = useState<PendingUpload[]>([]);
 
   const patch = useCallback((localId: string, change: Partial<PendingUpload>) => {
-    setUploads((current) => current.map((item) => (item.localId === localId ? { ...item, ...change } : item)));
+    setUploads((current) =>
+      current.map((item) => (item.localId === localId ? { ...item, ...change } : item)),
+    );
   }, []);
 
   // Mirrors `uploads` so `add` can count free slots without doing its work inside a state
@@ -121,8 +138,12 @@ export function useAttachmentUploads(max: number): {
         controller: new AbortController(),
       });
 
-      const accepted = incoming.slice(0, room).map((file) => ({ file, item: entry(file, precheck(file)?.message ?? null) }));
-      const refused = incoming.slice(room).map((file) => entry(file, `At most ${max} attachments.`));
+      const accepted = incoming
+        .slice(0, room)
+        .map((file) => ({ file, item: entry(file, precheck(file)?.message ?? null) }));
+      const refused = incoming
+        .slice(room)
+        .map((file) => entry(file, `At most ${max} attachments.`));
       const added = [...accepted.map(({ item }) => item), ...refused];
       uploadsRef.current = [...uploadsRef.current, ...added];
       setUploads((current) => [...current, ...added]);
@@ -154,7 +175,9 @@ export function useAttachmentUploads(max: number): {
 
   return {
     uploads,
-    readyIds: uploads.filter((item) => item.status === 'done' && item.fileId).map((item) => item.fileId as string),
+    readyIds: uploads
+      .filter((item) => item.status === 'done' && item.fileId)
+      .map((item) => item.fileId as string),
     busy: uploads.some((item) => item.status === 'uploading'),
     add,
     remove,
@@ -194,7 +217,12 @@ export function AttachmentPicker({
       className={`rounded-lg border border-dashed px-3 py-2 ${dragging ? 'border-brand-300 bg-brand-500/10' : 'border-white/15'}`}
     >
       <div className="flex items-center gap-3">
-        <Button type="button" variant="ghost" disabled={disabled} onClick={() => inputRef.current?.click()}>
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={disabled}
+          onClick={() => inputRef.current?.click()}
+        >
           Attach files
         </Button>
         <span className="text-xs text-neutral-500">or drop them here · up to 25 MB each</span>
@@ -221,7 +249,12 @@ export function AttachmentPicker({
               </span>
               {item.status === 'uploading' && (
                 <span className="flex items-center gap-2 text-neutral-400">
-                  <progress className="h-1.5 w-24" max={1} value={item.progress} aria-label={`Uploading ${item.name}`} />
+                  <progress
+                    className="h-1.5 w-24"
+                    max={1}
+                    value={item.progress}
+                    aria-label={`Uploading ${item.name}`}
+                  />
                   {Math.round(item.progress * 100)}%
                 </span>
               )}
@@ -235,7 +268,11 @@ export function AttachmentPicker({
                 type="button"
                 className="rounded px-1.5 py-0.5 text-neutral-400 underline hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-300"
                 onClick={() => onRemove(item.localId)}
-                aria-label={item.status === 'uploading' ? `Cancel upload of ${item.name}` : `Remove ${item.name}`}
+                aria-label={
+                  item.status === 'uploading'
+                    ? `Cancel upload of ${item.name}`
+                    : `Remove ${item.name}`
+                }
               >
                 {item.status === 'uploading' ? 'Cancel' : 'Remove'}
               </button>

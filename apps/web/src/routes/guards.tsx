@@ -28,7 +28,13 @@ export function RequireAuth({ children }: { children: ReactNode }): JSX.Element 
   return <>{children}</>;
 }
 
-export function RequireRole({ roles, children }: { roles: Role[]; children: ReactNode }): JSX.Element {
+export function RequireRole({
+  roles,
+  children,
+}: {
+  roles: Role[];
+  children: ReactNode;
+}): JSX.Element {
   const { isAuthenticated, isBooting, hasRole } = useAuth();
 
   if (isBooting) return <Spinner label="Restoring your session…" />;
@@ -48,14 +54,18 @@ export function RequirePermission({
   permission,
   children,
 }: {
-  permission: Permission;
+  /** One permission, or several of which any one is enough. */
+  permission: Permission | readonly Permission[];
   children: ReactNode;
 }): JSX.Element {
   const { isAuthenticated, isBooting, can } = useAuth();
+  const required: readonly Permission[] = Array.isArray(permission)
+    ? permission
+    : [permission as Permission];
 
   if (isBooting) return <Spinner label="Restoring your session…" />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (!can(permission)) return <Navigate to="/" replace />;
+  if (!required.some((item) => can(item))) return <Navigate to="/" replace />;
 
   return <>{children}</>;
 }

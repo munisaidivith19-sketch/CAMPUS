@@ -32,7 +32,8 @@ function ProfileCard(): JSX.Element {
   const [saved, setSaved] = useState(false);
 
   if (isLoading) return <SkeletonRows rows={2} />;
-  if (isError || !me) return <ErrorState message="Could not load your account." onRetry={() => void refetch()} />;
+  if (isError || !me)
+    return <ErrorState message="Could not load your account." onRetry={() => void refetch()} />;
 
   const value = fullName ?? me.fullName;
 
@@ -153,7 +154,8 @@ export function AccountPage(): JSX.Element {
       <div>
         <h1 className="text-2xl font-bold text-neutral-50">Welcome, {user?.fullName}</h1>
         <p className="mt-1 text-sm text-neutral-400">
-          Phase 2 covers identity and security. Academics, community and dashboards arrive in Phase 3.
+          Phase 2 covers identity and security. Academics, community and dashboards arrive in Phase
+          3.
         </p>
       </div>
 

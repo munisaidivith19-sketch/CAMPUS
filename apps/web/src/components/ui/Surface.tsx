@@ -14,9 +14,7 @@ export function GlassPanel({
   children: ReactNode;
   className?: string;
 }): JSX.Element {
-  return (
-    <section className={`glass rounded-2xl p-8 shadow-lg ${className}`}>{children}</section>
-  );
+  return <section className={`glass rounded-2xl p-8 shadow-lg ${className}`}>{children}</section>;
 }
 
 /** The centred, gradient-backed layout every unauthenticated screen shares. */

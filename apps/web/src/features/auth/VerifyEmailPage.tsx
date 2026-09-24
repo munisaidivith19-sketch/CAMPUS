@@ -59,9 +59,7 @@ export function VerifyEmailPage(): JSX.Element {
         <Alert tone="success">Your email is verified. You can sign in now.</Alert>
       )}
       {outcome === 'failed' && (
-        <Alert tone="error">
-          {message} If you already verified this address, just sign in.
-        </Alert>
+        <Alert tone="error">{message} If you already verified this address, just sign in.</Alert>
       )}
     </AuthLayout>
   );

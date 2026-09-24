@@ -13,7 +13,14 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   hint?: string;
 }
 
-export function Input({ label, error, hint, className = '', id, ...rest }: InputProps): JSX.Element {
+export function Input({
+  label,
+  error,
+  hint,
+  className = '',
+  id,
+  ...rest
+}: InputProps): JSX.Element {
   const generatedId = useId();
   const inputId = id ?? generatedId;
   const errorId = `${inputId}-error`;

@@ -91,7 +91,10 @@ function EventCard({ event }: { event: EventDTO }): JSX.Element {
           </>
         ) : (
           can(Permission.EVENT_REGISTER) && (
-            <Button busy={isRegistering} onClick={() => void act(() => register(event.id).unwrap())}>
+            <Button
+              busy={isRegistering}
+              onClick={() => void act(() => register(event.id).unwrap())}
+            >
               Register
             </Button>
           )
@@ -159,7 +162,11 @@ function CheckInPanel({ events }: { events: EventDTO[] }): JSX.Element {
           hint="Paste the value read from the attendee's QR."
         />
 
-        <Button busy={isLoading} onClick={() => void submit()} disabled={!eventId || token.length < 20}>
+        <Button
+          busy={isLoading}
+          onClick={() => void submit()}
+          disabled={!eventId || token.length < 20}
+        >
           Check in
         </Button>
       </div>
@@ -191,7 +198,9 @@ export function EventsPage(): JSX.Element {
                 className={[
                   'rounded-lg px-3 py-1.5 text-sm transition',
                   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-300',
-                  suggested === tab.key ? 'bg-brand-500/20 text-white' : 'text-neutral-300 hover:bg-white/10',
+                  suggested === tab.key
+                    ? 'bg-brand-500/20 text-white'
+                    : 'text-neutral-300 hover:bg-white/10',
                 ].join(' ')}
               >
                 {tab.label}
@@ -203,7 +212,9 @@ export function EventsPage(): JSX.Element {
 
       <SectionCard title={suggested ? 'Suggested' : 'Upcoming events'}>
         {events.isLoading && <SkeletonRows rows={3} />}
-        {events.isError && <ErrorState message="Could not load events." onRetry={() => void events.refetch()} />}
+        {events.isError && (
+          <ErrorState message="Could not load events." onRetry={() => void events.refetch()} />
+        )}
         {events.data?.length === 0 && (
           <EmptyState
             title={suggested ? 'No suggestions yet' : 'No upcoming events'}

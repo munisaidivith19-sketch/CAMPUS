@@ -25,6 +25,7 @@ import {
   useSendMessageMutation,
 } from '../../store/chatApi.js';
 import { useAppDispatch, useAppSelector } from '../../store/index.js';
+import { useReportContentMutation } from '../../store/campusApi.js';
 import { emitWithAck, joinChatRoom, leaveChatRoom, onSocketEvent } from '../../lib/socket.js';
 import { PageHeader, SectionCard } from '../../components/ui/DataDisplay.js';
 import { Alert, EmptyState, ErrorState, SkeletonRows } from '../../components/ui/Feedback.js';
@@ -243,12 +244,14 @@ function MessageRow({
   canModerate,
   onEdit,
   onDelete,
+  onReport,
 }: {
   message: ChatMessageDTO;
   mine: boolean;
   canModerate: boolean;
   onEdit: (message: ChatMessageDTO) => void;
   onDelete: (message: ChatMessageDTO) => void;
+  onReport: (message: ChatMessageDTO) => void;
 }): JSX.Element {
   if (message.type === 'SYSTEM') {
     return <li className="py-1 text-center text-xs text-neutral-500">{message.body}</li>;
@@ -308,6 +311,15 @@ function MessageRow({
               Remove
             </button>
           )}
+          {!message.deleted && !mine && (
+            <button
+              type="button"
+              className="underline hover:text-neutral-300"
+              onClick={() => onReport(message)}
+            >
+              Report
+            </button>
+          )}
         </p>
       </div>
     </li>
@@ -332,6 +344,7 @@ function Conversation({ chatId }: { chatId: string }): JSX.Element {
   const [muteChat] = useMuteChatMutation();
   const [leaveChat] = useLeaveChatMutation();
   const [addMembers] = useAddChatMembersMutation();
+  const [reportContent] = useReportContentMutation();
 
   const [draft, setDraft] = useState('');
   const attachments = useAttachmentUploads(UPLOAD.CHAT_MAX_ATTACHMENTS);
@@ -469,6 +482,15 @@ function Conversation({ chatId }: { chatId: string }): JSX.Element {
       .catch(() => setNotice('That message could not be deleted.'));
   };
 
+  const onReport = (message: ChatMessageDTO): void => {
+    const reason = window.prompt('What is wrong with this message? (at least 5 characters)');
+    if (!reason || reason.trim().length < 5) return;
+    void reportContent({ targetType: 'CHAT_MESSAGE', targetId: message.id, reason: reason.trim() })
+      .unwrap()
+      .then(() => setNotice('Reported. Moderators for this chat will review it.'))
+      .catch(() => setNotice('That message could not be reported.'));
+  };
+
   const loadOlder = (): void => {
     const cursor = messages.data?.nextCursor;
     if (cursor) void dispatch(chatApi.endpoints.getMessages.initiate({ chatId, before: cursor }));
@@ -552,6 +574,7 @@ function Conversation({ chatId }: { chatId: string }): JSX.Element {
               canModerate={canModerate}
               onEdit={onEdit}
               onDelete={onDelete}
+              onReport={onReport}
             />
           ))}
 

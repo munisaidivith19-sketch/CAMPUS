@@ -25,7 +25,15 @@ function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString();
 }
 
-function SessionRow({ session, onRevoke, busy }: { session: SessionDTO; onRevoke: () => void; busy: boolean }): JSX.Element {
+function SessionRow({
+  session,
+  onRevoke,
+  busy,
+}: {
+  session: SessionDTO;
+  onRevoke: () => void;
+  busy: boolean;
+}): JSX.Element {
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-4 py-3">
       <div className="min-w-0">
@@ -58,7 +66,8 @@ function DevicesCard(): JSX.Element {
   const [notice, setNotice] = useState<string | null>(null);
 
   if (isLoading) return <SkeletonRows rows={3} />;
-  if (isError || !data) return <ErrorState message="Could not load your devices." onRetry={() => void refetch()} />;
+  if (isError || !data)
+    return <ErrorState message="Could not load your devices." onRetry={() => void refetch()} />;
 
   const others = data.activeSessions.filter((session) => !session.current);
 
@@ -116,13 +125,18 @@ function ActivityCard(): JSX.Element {
   const { data: overview } = useGetSecurityOverviewQuery();
 
   if (isLoading) return <SkeletonRows rows={3} />;
-  if (isError || !data) return <ErrorState message="Could not load your sign-in activity." onRetry={() => void refetch()} />;
+  if (isError || !data)
+    return (
+      <ErrorState message="Could not load your sign-in activity." onRetry={() => void refetch()} />
+    );
 
   return (
     <GlassPanel>
       <h2 className="text-lg font-semibold text-neutral-50">Recent sign-in activity</h2>
       <p className="mt-1 text-sm text-neutral-400">
-        {overview ? `${overview.failedAttemptsLast7Days} failed attempt(s) in the last 7 days.` : ''}
+        {overview
+          ? `${overview.failedAttemptsLast7Days} failed attempt(s) in the last 7 days.`
+          : ''}
       </p>
 
       {data.length === 0 ? (

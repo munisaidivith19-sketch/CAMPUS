@@ -17,8 +17,8 @@ import { Button } from '../ui/Button.js';
 interface NavItem {
   to: string;
   label: string;
-  /** When set, the link only renders for a caller holding this permission. */
-  permission?: Permission;
+  /** When set, the link only renders for a caller holding this permission (or any of these). */
+  permission?: Permission | readonly Permission[];
   end?: boolean;
 }
 
@@ -26,7 +26,11 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/attendance', label: 'Attendance' },
   { to: '/attendance/mark', label: 'Mark', permission: Permission.ATTENDANCE_MARK },
-  { to: '/attendance/corrections', label: 'Corrections', permission: Permission.ATTENDANCE_CORRECTION_REVIEW },
+  {
+    to: '/attendance/corrections',
+    label: 'Corrections',
+    permission: Permission.ATTENDANCE_CORRECTION_REVIEW,
+  },
   { to: '/timetable', label: 'Timetable' },
   { to: '/announcements', label: 'Announcements' },
   { to: '/clubs', label: 'Clubs' },
@@ -34,6 +38,11 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/discussions', label: 'Discussions' },
   { to: '/chat', label: 'Chat', permission: Permission.CHAT_READ },
   { to: '/search', label: 'Search' },
+  {
+    to: '/moderation',
+    label: 'Moderation',
+    permission: [Permission.MODERATION_REVIEW, Permission.CHAT_MODERATE],
+  },
 ];
 
 export function AppShell(): JSX.Element {
@@ -61,7 +70,11 @@ export function AppShell(): JSX.Element {
       isActive ? 'bg-white/10 text-white' : 'text-neutral-300 hover:bg-white/5 hover:text-white',
     ].join(' ');
 
-  const visibleItems = NAV_ITEMS.filter((item) => !item.permission || can(item.permission));
+  const visibleItems = NAV_ITEMS.filter((item) => {
+    if (!item.permission) return true;
+    const required = Array.isArray(item.permission) ? item.permission : [item.permission];
+    return required.some((permission) => can(permission as Permission));
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-900 via-neutral-950 to-neutral-900">

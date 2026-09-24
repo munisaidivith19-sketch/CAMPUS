@@ -147,7 +147,10 @@ export function ResetPasswordPage(): JSX.Element {
   }
 
   return (
-    <AuthLayout title="Choose a new password" subtitle="Signing in elsewhere will be required again.">
+    <AuthLayout
+      title="Choose a new password"
+      subtitle="Signing in elsewhere will be required again."
+    >
       <form onSubmit={(e) => void submit(e)} className="space-y-5" noValidate>
         {formError && <Alert tone="error">{formError}</Alert>}
         <Input

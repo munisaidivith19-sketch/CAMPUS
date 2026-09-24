@@ -70,7 +70,11 @@ export function onSocketEvent<T>(event: string, handler: (payload: T) => void): 
  * is the caller's cue to fall back to the REST endpoint. Both paths carry the same
  * `clientMessageId`, so a message that quietly went through anyway is not duplicated.
  */
-export function emitWithAck<T>(event: string, payload: unknown, timeoutMs = 4_000): Promise<T | null> {
+export function emitWithAck<T>(
+  event: string,
+  payload: unknown,
+  timeoutMs = 4_000,
+): Promise<T | null> {
   const active = getSocket();
   if (!active.connected) return Promise.resolve(null);
 

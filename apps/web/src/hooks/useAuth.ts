@@ -17,6 +17,7 @@ export function useAuth() {
     isAuthenticated: status === 'authenticated' && user !== null,
     isBooting: status === 'booting',
     can: (permission: Permission): boolean => user?.permissions.includes(permission) ?? false,
-    hasRole: (...roles: Role[]): boolean => roles.some((role) => user?.roles.includes(role)) ?? false,
+    hasRole: (...roles: Role[]): boolean =>
+      roles.some((role) => user?.roles.includes(role)) ?? false,
   };
 }

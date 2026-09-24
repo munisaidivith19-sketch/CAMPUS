@@ -80,7 +80,11 @@ api.interceptors.response.use(
     // Only a genuine 401 on a non-auth route is worth a silent refresh. A failed login must
     // surface to the form, and refreshing the refresh call itself would recurse.
     const isRefreshable =
-      status === 401 && original && !original._retried && !url.includes('/auth/refresh') && !url.includes('/auth/login');
+      status === 401 &&
+      original &&
+      !original._retried &&
+      !url.includes('/auth/refresh') &&
+      !url.includes('/auth/login');
 
     if (!isRefreshable) return Promise.reject(error);
 
@@ -126,7 +130,10 @@ export function apiErrorCode(error: unknown): string | null {
 }
 
 /** A human-readable message for a failed request, preferring the server's own wording. */
-export function apiErrorMessage(error: unknown, fallback = 'Something went wrong. Try again.'): string {
+export function apiErrorMessage(
+  error: unknown,
+  fallback = 'Something went wrong. Try again.',
+): string {
   if (axios.isAxiosError<ApiErrorBody>(error)) {
     return error.response?.data?.error?.message ?? fallback;
   }

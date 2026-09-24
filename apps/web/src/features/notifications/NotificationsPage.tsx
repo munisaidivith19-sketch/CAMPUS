@@ -46,10 +46,16 @@ export function NotificationsPage(): JSX.Element {
       <SectionCard title="Inbox">
         {notifications.isLoading && <SkeletonRows rows={4} />}
         {notifications.isError && (
-          <ErrorState message="Could not load notifications." onRetry={() => void notifications.refetch()} />
+          <ErrorState
+            message="Could not load notifications."
+            onRetry={() => void notifications.refetch()}
+          />
         )}
         {notifications.data?.length === 0 && (
-          <EmptyState title="Nothing yet" description="Updates about your account and campus appear here." />
+          <EmptyState
+            title="Nothing yet"
+            description="Updates about your account and campus appear here."
+          />
         )}
 
         {notifications.data && notifications.data.length > 0 && (

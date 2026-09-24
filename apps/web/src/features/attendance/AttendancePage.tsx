@@ -13,7 +13,13 @@ import {
   useGetMyCorrectionsQuery,
   useRequestCorrectionMutation,
 } from '../../store/campusApi.js';
-import { AttendanceMeter, Badge, PageHeader, SectionCard, StatCard } from '../../components/ui/DataDisplay.js';
+import {
+  AttendanceMeter,
+  Badge,
+  PageHeader,
+  SectionCard,
+  StatCard,
+} from '../../components/ui/DataDisplay.js';
 import { Alert, EmptyState, ErrorState, SkeletonRows } from '../../components/ui/Feedback.js';
 import { Button } from '../../components/ui/Button.js';
 import { Input } from '../../components/ui/Input.js';
@@ -43,7 +49,9 @@ function CorrectionDialog({
         attendanceId: record.id,
         // A correction always flips to the other value.
         newValue:
-          record.status === AttendanceStatus.ABSENT ? AttendanceStatus.PRESENT : AttendanceStatus.ABSENT,
+          record.status === AttendanceStatus.ABSENT
+            ? AttendanceStatus.PRESENT
+            : AttendanceStatus.ABSENT,
         reason: reason.trim(),
       }).unwrap();
       onClose();
@@ -53,7 +61,10 @@ function CorrectionDialog({
   };
 
   return (
-    <form onSubmit={(e) => void submit(e)} className="mt-4 space-y-4 rounded-lg border border-white/15 p-4">
+    <form
+      onSubmit={(e) => void submit(e)}
+      className="mt-4 space-y-4 rounded-lg border border-white/15 p-4"
+    >
       {error && <Alert tone="error">{error}</Alert>}
       <p className="text-sm text-neutral-300">
         Requesting a change for <strong>{record.subject.code}</strong> on{' '}
@@ -94,7 +105,10 @@ export function AttendancePage(): JSX.Element {
 
       {summary.isLoading && <SkeletonRows rows={3} />}
       {summary.isError && (
-        <ErrorState message="Could not load your attendance." onRetry={() => void summary.refetch()} />
+        <ErrorState
+          message="Could not load your attendance."
+          onRetry={() => void summary.refetch()}
+        />
       )}
 
       {overview && (
@@ -145,7 +159,12 @@ export function AttendancePage(): JSX.Element {
 
       <SectionCard title="Recent periods">
         {records.isLoading && <SkeletonRows rows={4} />}
-        {records.isError && <ErrorState message="Could not load your records." onRetry={() => void records.refetch()} />}
+        {records.isError && (
+          <ErrorState
+            message="Could not load your records."
+            onRetry={() => void records.refetch()}
+          />
+        )}
         {records.data?.length === 0 && <EmptyState title="Nothing recorded yet" />}
 
         {records.data && records.data.length > 0 && (

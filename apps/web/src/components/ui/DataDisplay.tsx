@@ -66,7 +66,9 @@ export function Badge({
   } as const;
 
   return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${tones[tone]}`}>{children}</span>
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${tones[tone]}`}>
+      {children}
+    </span>
   );
 }
 
@@ -95,7 +97,9 @@ export function AttendanceMeter({
     <div>
       <div className="flex items-baseline justify-between gap-3">
         {label && <span className="text-sm text-neutral-200">{label}</span>}
-        <span className={`text-sm font-semibold ${below ? 'text-warning-500' : 'text-neutral-100'}`}>
+        <span
+          className={`text-sm font-semibold ${below ? 'text-warning-500' : 'text-neutral-100'}`}
+        >
           {total === 0 ? 'No records' : `${percentage}%`}
           {/* The raw counts, so the number can be checked rather than trusted. */}
           <span className="ml-2 font-normal text-neutral-400">

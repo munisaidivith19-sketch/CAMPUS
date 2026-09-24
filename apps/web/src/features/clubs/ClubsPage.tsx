@@ -7,12 +7,26 @@
  */
 import { useState } from 'react';
 import { ClubMembershipStatus, type ClubDTO } from '@campusconnect/types';
-import { useGetClubsQuery, useJoinClubMutation } from '../../store/campusApi.js';
+import {
+  useGetClubsQuery,
+  useJoinClubMutation,
+  useLeaveClubMutation,
+} from '../../store/campusApi.js';
 import { Badge, PageHeader, SectionCard } from '../../components/ui/DataDisplay.js';
 import { Alert, EmptyState, ErrorState, SkeletonRows } from '../../components/ui/Feedback.js';
 import { Button } from '../../components/ui/Button.js';
 
-function ClubCard({ club, onJoin, joining }: { club: ClubDTO; onJoin: () => void; joining: boolean }): JSX.Element {
+function ClubCard({
+  club,
+  onJoin,
+  onLeave,
+  busy,
+}: {
+  club: ClubDTO;
+  onJoin: () => void;
+  onLeave: () => void;
+  busy: boolean;
+}): JSX.Element {
   const status = club.membership?.status;
 
   return (
@@ -25,12 +39,17 @@ function ClubCard({ club, onJoin, joining }: { club: ClubDTO; onJoin: () => void
           </p>
         </div>
 
-        {status === ClubMembershipStatus.APPROVED ? (
-          <Badge tone="good">Member</Badge>
-        ) : status === ClubMembershipStatus.REQUESTED ? (
-          <Badge tone="info">Requested</Badge>
+        {status === ClubMembershipStatus.APPROVED || status === ClubMembershipStatus.REQUESTED ? (
+          <div className="flex items-center gap-2">
+            <Badge tone={status === ClubMembershipStatus.APPROVED ? 'good' : 'info'}>
+              {status === ClubMembershipStatus.APPROVED ? 'Member' : 'Requested'}
+            </Badge>
+            <Button variant="ghost" busy={busy} onClick={onLeave}>
+              {status === ClubMembershipStatus.APPROVED ? 'Leave' : 'Withdraw'}
+            </Button>
+          </div>
         ) : (
-          <Button variant="secondary" busy={joining} onClick={onJoin}>
+          <Button variant="secondary" busy={busy} onClick={onJoin}>
             Request to join
           </Button>
         )}
@@ -63,6 +82,7 @@ export function ClubsPage(): JSX.Element {
   const [suggested, setSuggested] = useState(false);
   const clubs = useGetClubsQuery({ suggested });
   const [joinClub, { isLoading }] = useJoinClubMutation();
+  const [leaveClub, { isLoading: leaving }] = useLeaveClubMutation();
   const [error, setError] = useState<string | null>(null);
 
   const join = async (id: string): Promise<void> => {
@@ -71,6 +91,17 @@ export function ClubsPage(): JSX.Element {
       await joinClub(id).unwrap();
     } catch (err) {
       setError((err as { message?: string })?.message ?? 'Could not send your request.');
+    }
+  };
+
+  const leave = async (club: ClubDTO): Promise<void> => {
+    setError(null);
+    // Leaving also removes you from the club chat straight away; say so before doing it.
+    if (!window.confirm(`Leave ${club.name}? You will also lose access to its chat.`)) return;
+    try {
+      await leaveClub(club.id).unwrap();
+    } catch (err) {
+      setError((err as { message?: string })?.message ?? 'Could not leave the club.');
     }
   };
 
@@ -93,7 +124,9 @@ export function ClubsPage(): JSX.Element {
                 className={[
                   'rounded-lg px-3 py-1.5 text-sm transition',
                   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-300',
-                  suggested === tab.key ? 'bg-brand-500/20 text-white' : 'text-neutral-300 hover:bg-white/10',
+                  suggested === tab.key
+                    ? 'bg-brand-500/20 text-white'
+                    : 'text-neutral-300 hover:bg-white/10',
                 ].join(' ')}
               >
                 {tab.label}
@@ -107,14 +140,16 @@ export function ClubsPage(): JSX.Element {
 
       {suggested && (
         <Alert tone="info">
-          Suggestions are rule-based: your declared interests, the categories you already joined, and
-          what peers in your department joined. Each card shows why it matched.
+          Suggestions are rule-based: your declared interests, the categories you already joined,
+          and what peers in your department joined. Each card shows why it matched.
         </Alert>
       )}
 
       <SectionCard title={suggested ? 'Suggested' : 'All clubs'}>
         {clubs.isLoading && <SkeletonRows rows={3} />}
-        {clubs.isError && <ErrorState message="Could not load clubs." onRetry={() => void clubs.refetch()} />}
+        {clubs.isError && (
+          <ErrorState message="Could not load clubs." onRetry={() => void clubs.refetch()} />
+        )}
         {clubs.data?.length === 0 && (
           <EmptyState
             title={suggested ? 'No suggestions yet' : 'No clubs yet'}
@@ -129,7 +164,13 @@ export function ClubsPage(): JSX.Element {
         {clubs.data && clubs.data.length > 0 && (
           <ul className="space-y-3">
             {clubs.data.map((club) => (
-              <ClubCard key={club.id} club={club} joining={isLoading} onJoin={() => void join(club.id)} />
+              <ClubCard
+                key={club.id}
+                club={club}
+                busy={isLoading || leaving}
+                onJoin={() => void join(club.id)}
+                onLeave={() => void leave(club)}
+              />
             ))}
           </ul>
         )}

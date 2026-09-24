@@ -26,8 +26,7 @@ export interface SecurityOverview {
 }
 
 export type MyProfile =
-  | { type: 'STUDENT'; profile: StudentProfileDTO }
-  | { type: 'FACULTY'; profile: FacultyProfileDTO };
+  { type: 'STUDENT'; profile: StudentProfileDTO } | { type: 'FACULTY'; profile: FacultyProfileDTO };
 
 export const authApi = createApi({
   reducerPath: 'authApi',
@@ -39,7 +38,10 @@ export const authApi = createApi({
       query: (body) => ({ url: '/auth/login', method: 'POST', data: body }),
       invalidatesTags: ['Me', 'Sessions', 'Security'],
     }),
-    register: builder.mutation<{ status: string }, { email: string; password: string; fullName: string }>({
+    register: builder.mutation<
+      { status: string },
+      { email: string; password: string; fullName: string }
+    >({
       query: (body) => ({ url: '/auth/register', method: 'POST', data: body }),
     }),
     verifyEmail: builder.mutation<{ status: string }, { token: string }>({

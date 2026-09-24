@@ -27,6 +27,7 @@ import { DiscussionsPage } from '../features/discussions/DiscussionsPage.js';
 import { NotificationsPage } from '../features/notifications/NotificationsPage.js';
 import { ChatPage } from '../features/chat/ChatPage.js';
 import { SearchPage } from '../features/search/SearchPage.js';
+import { ModerationPage } from '../features/moderation/ModerationPage.js';
 
 export function AppRoutes(): JSX.Element {
   return (
@@ -98,6 +99,16 @@ export function AppRoutes(): JSX.Element {
         <Route path="/chat/:id" element={<ChatPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/search" element={<SearchPage />} />
+        <Route
+          path="/moderation"
+          element={
+            <RequirePermission
+              permission={[Permission.MODERATION_REVIEW, Permission.CHAT_MODERATE]}
+            >
+              <ModerationPage />
+            </RequirePermission>
+          }
+        />
 
         {/* Identity */}
         <Route path="/account" element={<AccountPage />} />

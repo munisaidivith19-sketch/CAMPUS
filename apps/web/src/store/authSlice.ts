@@ -49,5 +49,6 @@ const authSlice = createSlice({
   },
 });
 
-export const { sessionEstablished, userUpdated, sessionEnded, bootFinishedAnonymous } = authSlice.actions;
+export const { sessionEstablished, userUpdated, sessionEnded, bootFinishedAnonymous } =
+  authSlice.actions;
 export const authReducer = authSlice.reducer;

@@ -43,6 +43,8 @@ export interface ModerationReach {
   classIds: string[] | null;
   /** Club ids this principal administers. */
   clubIds: string[];
+  /** Principal / system admin: every class AND club chat. Absent means false. */
+  institutionWide?: boolean;
 }
 
 export const chatAccess = {
@@ -61,9 +63,7 @@ export const chatAccess = {
   },
 
   canSend(principal: Principal, membership: ChatMembershipFacts | null): boolean {
-    return (
-      membership !== null && principal.permissions.includes(Permission.CHAT_MESSAGE_SEND)
-    );
+    return membership !== null && principal.permissions.includes(Permission.CHAT_MESSAGE_SEND);
   },
 
   canCreate(principal: Principal): boolean {
@@ -100,12 +100,7 @@ export const chatAccess = {
    * words in someone's mouth is a different power from removing them, and only the second is
    * granted anywhere in this system.
    */
-  canEdit(
-    principal: Principal,
-    message: MessageFacts,
-    now: Date,
-    editWindowMs: number,
-  ): boolean {
+  canEdit(principal: Principal, message: MessageFacts, now: Date, editWindowMs: number): boolean {
     if (message.deleted) return false;
     if (message.senderUserId !== principal.userId) return false;
     return now.getTime() - message.createdAt.getTime() <= editWindowMs;
@@ -124,15 +119,13 @@ export const chatAccess = {
    * has no moderator — there is no scope that contains a private conversation, and inventing one
    * would make every group readable by whoever holds the permission.
    */
-  canModerateDelete(
-    principal: Principal,
-    chat: ChatFacts,
-    reach: ModerationReach,
-  ): boolean {
+  canModerateDelete(principal: Principal, chat: ChatFacts, reach: ModerationReach): boolean {
     if (!principal.permissions.includes(Permission.CHAT_MODERATE)) return false;
     if (!chat.sourceRef) return false;
 
-    if (chat.type === ChatType.CLUB) return reach.clubIds.includes(chat.sourceRef);
+    if (chat.type === ChatType.CLUB) {
+      return reach.institutionWide === true || reach.clubIds.includes(chat.sourceRef);
+    }
     if (chat.type === ChatType.CLASS) {
       // null means institution-wide reach (principal); [] means an empty scope, which matches
       // nothing. Collapsing the two would turn a scoped moderator into a global one.

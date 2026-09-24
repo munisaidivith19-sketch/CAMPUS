@@ -22,7 +22,12 @@ export const passwordSchema = z
   .refine((v) => /\d/.test(v), 'Password must contain a digit');
 
 /** Free-text email schema. Domain enforcement happens server-side (see institutionEmailSchema). */
-export const emailSchema = z.string().trim().toLowerCase().email('Enter a valid email address').max(254);
+export const emailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email('Enter a valid email address')
+  .max(254);
 
 export const fullNameSchema = z.string().trim().min(2, 'Enter your full name').max(120);
 

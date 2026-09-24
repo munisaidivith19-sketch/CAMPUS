@@ -26,7 +26,11 @@ import type {
   searchQuerySchema,
 } from '@campusconnect/validation';
 import { requirePrincipal } from '../middleware/auth.middleware.js';
-import { validatedBody, validatedParams, validatedQuery } from '../middleware/validate.middleware.js';
+import {
+  validatedBody,
+  validatedParams,
+  validatedQuery,
+} from '../middleware/validate.middleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { getRequestContext } from '../utils/requestContext.js';
 import {
@@ -35,7 +39,14 @@ import {
   listAnnouncements,
   markAnnouncementRead,
 } from '../services/announcement.service.js';
-import { decideMembership, getClub, listClubMembers, listClubs, requestMembership } from '../services/club.service.js';
+import {
+  decideMembership,
+  getClub,
+  leaveClub,
+  listClubMembers,
+  listClubs,
+  requestMembership,
+} from '../services/club.service.js';
 import {
   checkInWithQr,
   createEvent,
@@ -73,28 +84,47 @@ function paginated<T>(res: Response, items: T[], page: number, limit: number, to
 
 // --- Announcements -----------------------------------------------------------
 
-export async function postAnnouncement(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function postAnnouncement(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const input = validatedBody<typeof createAnnouncementSchema>(res);
-    sendSuccess(res, await createAnnouncement(principal, input, getRequestContext(req)), { status: 201 });
+    sendSuccess(res, await createAnnouncement(principal, input, getRequestContext(req)), {
+      status: 201,
+    });
   } catch (err) {
     next(err);
   }
 }
 
-export async function getAnnouncements(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getAnnouncements(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
-    const { page, limit, unreadOnly, priority, q } = validatedQuery<typeof announcementQuerySchema>(res);
-    const result = await listAnnouncements(principal, { page, limit }, { unreadOnly, priority, search: q });
+    const { page, limit, unreadOnly, priority, q } =
+      validatedQuery<typeof announcementQuerySchema>(res);
+    const result = await listAnnouncements(
+      principal,
+      { page, limit },
+      { unreadOnly, priority, search: q },
+    );
     paginated(res, result.items, page, limit, result.total);
   } catch (err) {
     next(err);
   }
 }
 
-export async function getAnnouncementById(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getAnnouncementById(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { id } = validatedParams<typeof idParamSchema>(res);
@@ -104,7 +134,11 @@ export async function getAnnouncementById(req: Request, res: Response, next: Nex
   }
 }
 
-export async function postAnnouncementRead(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function postAnnouncementRead(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { id } = validatedParams<typeof idParamSchema>(res);
@@ -142,18 +176,39 @@ export async function postClubJoin(req: Request, res: Response, next: NextFuncti
   try {
     const principal = requirePrincipal(req);
     const { id } = validatedParams<typeof idParamSchema>(res);
-    sendSuccess(res, await requestMembership(principal, id, getRequestContext(req)), { status: 201 });
+    sendSuccess(res, await requestMembership(principal, id, getRequestContext(req)), {
+      status: 201,
+    });
   } catch (err) {
     next(err);
   }
 }
 
-export async function getClubMembers(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function postClubLeave(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const principal = requirePrincipal(req);
+    const { id } = validatedParams<typeof idParamSchema>(res);
+    sendSuccess(res, await leaveClub(principal, id, getRequestContext(req)));
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getClubMembers(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { id } = validatedParams<typeof idParamSchema>(res);
     const { page, limit } = validatedQuery<typeof paginationQuerySchema>(res);
-    const status = typeof req.query.status === 'string' ? (req.query.status as ClubMembershipStatus) : undefined;
+    const status =
+      typeof req.query.status === 'string' ? (req.query.status as ClubMembershipStatus) : undefined;
     const result = await listClubMembers(principal, id, { page, limit }, status);
     paginated(res, result.items, page, limit, result.total);
   } catch (err) {
@@ -161,7 +216,11 @@ export async function getClubMembers(req: Request, res: Response, next: NextFunc
   }
 }
 
-export async function patchMembership(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function patchMembership(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { id } = validatedParams<typeof idParamSchema>(res);
@@ -210,11 +269,17 @@ export async function postEvent(req: Request, res: Response, next: NextFunction)
   }
 }
 
-export async function postEventRegistration(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function postEventRegistration(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { id } = validatedParams<typeof idParamSchema>(res);
-    sendSuccess(res, await registerForEvent(principal, id, getRequestContext(req)), { status: 201 });
+    sendSuccess(res, await registerForEvent(principal, id, getRequestContext(req)), {
+      status: 201,
+    });
   } catch (err) {
     next(err);
   }
@@ -230,7 +295,11 @@ export async function postEventQr(req: Request, res: Response, next: NextFunctio
   }
 }
 
-export async function postEventCheckIn(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function postEventCheckIn(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { id } = validatedParams<typeof idParamSchema>(res);
@@ -241,7 +310,11 @@ export async function postEventCheckIn(req: Request, res: Response, next: NextFu
   }
 }
 
-export async function getMyRegistrations(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getMyRegistrations(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { page, limit } = validatedQuery<typeof paginationQuerySchema>(res);
@@ -254,7 +327,11 @@ export async function getMyRegistrations(req: Request, res: Response, next: Next
 
 // --- Discussions & moderation -------------------------------------------------
 
-export async function getDiscussions(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getDiscussions(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { page, limit, category, tag, q } = validatedQuery<typeof discussionQuerySchema>(res);
@@ -265,7 +342,11 @@ export async function getDiscussions(req: Request, res: Response, next: NextFunc
   }
 }
 
-export async function getDiscussionById(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getDiscussionById(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { id } = validatedParams<typeof idParamSchema>(res);
@@ -275,11 +356,17 @@ export async function getDiscussionById(req: Request, res: Response, next: NextF
   }
 }
 
-export async function postDiscussion(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function postDiscussion(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const input = validatedBody<typeof createDiscussionSchema>(res);
-    sendSuccess(res, await createDiscussion(principal, input, getRequestContext(req)), { status: 201 });
+    sendSuccess(res, await createDiscussion(principal, input, getRequestContext(req)), {
+      status: 201,
+    });
   } catch (err) {
     next(err);
   }
@@ -308,7 +395,11 @@ export async function postComment(req: Request, res: Response, next: NextFunctio
   }
 }
 
-export async function postCommentReaction(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function postCommentReaction(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { id } = validatedParams<typeof idParamSchema>(res);
@@ -322,13 +413,19 @@ export async function postReport(req: Request, res: Response, next: NextFunction
   try {
     const principal = requirePrincipal(req);
     const input = validatedBody<typeof reportContentSchema>(res);
-    sendSuccess(res, await reportContent(principal, input, getRequestContext(req)), { status: 201 });
+    sendSuccess(res, await reportContent(principal, input, getRequestContext(req)), {
+      status: 201,
+    });
   } catch (err) {
     next(err);
   }
 }
 
-export async function getModerationQueue(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getModerationQueue(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { page, limit } = validatedQuery<typeof paginationQuerySchema>(res);
@@ -338,14 +435,21 @@ export async function getModerationQueue(req: Request, res: Response, next: Next
   }
 }
 
-export async function postModerationDecision(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function postModerationDecision(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { id } = validatedParams<typeof idParamSchema>(res);
     const input = validatedBody<typeof moderationDecisionSchema>(res);
 
     const targetType = req.path.includes('/comments/') ? 'COMMENT' : 'DISCUSSION';
-    sendSuccess(res, await moderateContent(principal, targetType, id, input, getRequestContext(req)));
+    sendSuccess(
+      res,
+      await moderateContent(principal, targetType, id, input, getRequestContext(req)),
+    );
   } catch (err) {
     next(err);
   }
@@ -353,7 +457,11 @@ export async function postModerationDecision(req: Request, res: Response, next: 
 
 // --- Notifications & search ---------------------------------------------------
 
-export async function getNotifications(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getNotifications(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { page, limit, unreadOnly } = validatedQuery<typeof notificationQuerySchema>(res);
@@ -372,7 +480,11 @@ export async function getNotifications(req: Request, res: Response, next: NextFu
   }
 }
 
-export async function patchNotificationRead(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function patchNotificationRead(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const { id } = validatedParams<typeof idParamSchema>(res);
@@ -385,7 +497,11 @@ export async function patchNotificationRead(req: Request, res: Response, next: N
   }
 }
 
-export async function postNotificationsReadAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function postNotificationsReadAll(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const principal = requirePrincipal(req);
     const count = await markAllNotificationsRead(principal.institutionId, principal.userId);

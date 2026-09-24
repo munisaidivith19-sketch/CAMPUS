@@ -45,7 +45,9 @@ class ClubRepository extends TenantRepository<ClubEntity> {
   }
 
   async findManyByIds(institutionId: IdLike, ids: IdLike[]): Promise<ClubDocument[]> {
-    const objectIds = ids.map((id) => toObjectId(id)).filter((id): id is Types.ObjectId => id !== null);
+    const objectIds = ids
+      .map((id) => toObjectId(id))
+      .filter((id): id is Types.ObjectId => id !== null);
     if (objectIds.length === 0) return [];
     return ClubModel.find(this.scoped(institutionId, { _id: { $in: objectIds } })).exec();
   }
@@ -178,6 +180,28 @@ class ClubMembershipRepository extends TenantRepository<MembershipEntity> {
         },
       },
       { new: true },
+    ).exec();
+  }
+
+  /**
+   * Leave a club, or withdraw a pending request. Conditional on the membership still being
+   * APPROVED or REQUESTED, so a double click cannot decrement the member count twice.
+   */
+  async leave(
+    institutionId: IdLike,
+    clubId: IdLike,
+    userId: IdLike,
+  ): Promise<ClubMembershipDocument | null> {
+    return ClubMembershipModel.findOneAndUpdate(
+      {
+        institutionId: requireObjectId(institutionId),
+        clubId: requireObjectId(clubId),
+        userId: requireObjectId(userId),
+        status: { $in: [ClubMembershipStatus.APPROVED, ClubMembershipStatus.REQUESTED] },
+      },
+      { $set: { status: ClubMembershipStatus.LEFT } },
+      // Returns the row as it was, so the caller knows whether a member (not a request) left.
+      { new: false },
     ).exec();
   }
 

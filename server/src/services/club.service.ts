@@ -110,7 +110,10 @@ async function departmentPeerCounts(
   const counts = new Map<string, number>();
   if (!departmentId) return counts;
 
-  const departmentStudents = await studentProfileRepository.listByDepartment(institutionId, departmentId);
+  const departmentStudents = await studentProfileRepository.listByDepartment(
+    institutionId,
+    departmentId,
+  );
   const departmentUserIds = new Set(departmentStudents.map((profile) => String(profile.userId)));
 
   await Promise.all(
@@ -166,16 +169,22 @@ export async function listClubs(
       search: options.search,
     });
     return {
-      items: await Promise.all(result.items.map((club) => toClubDTO(institutionId, club, principal.userId))),
+      items: await Promise.all(
+        result.items.map((club) => toClubDTO(institutionId, club, principal.userId)),
+      ),
       total: result.total,
     };
   }
 
   // Suggestion mode: rule-based, and only clubs the student is not already involved with.
   const profile = await buildDiscoveryProfile(institutionId, principal.userId);
-  const all = await clubRepository.list(institutionId, { page: 1, limit: 100 }, {
-    category: options.category,
-  });
+  const all = await clubRepository.list(
+    institutionId,
+    { page: 1, limit: 100 },
+    {
+      category: options.category,
+    },
+  );
   const peerCounts = await departmentPeerCounts(institutionId, all.items, profile.departmentId);
 
   const matched = all.items
@@ -202,7 +211,9 @@ export async function listClubs(
 
   return {
     items: await Promise.all(
-      pageItems.map((entry) => toClubDTO(institutionId, entry.club, principal.userId, entry.reasons)),
+      pageItems.map((entry) =>
+        toClubDTO(institutionId, entry.club, principal.userId, entry.reasons),
+      ),
     ),
     total: matched.length,
   };
@@ -224,7 +235,11 @@ export async function requestMembership(
   const club = await clubRepository.findById(institutionId, clubId);
   if (!club) throw Errors.notFound();
 
-  const existing = await clubMembershipRepository.findForUserAndClub(institutionId, clubId, principal.userId);
+  const existing = await clubMembershipRepository.findForUserAndClub(
+    institutionId,
+    clubId,
+    principal.userId,
+  );
   if (existing?.status === ClubMembershipStatus.APPROVED) {
     throw Errors.conflict('You are already a member of this club.');
   }
@@ -232,7 +247,11 @@ export async function requestMembership(
     throw Errors.conflict('Your request is already pending.');
   }
 
-  const membership = await clubMembershipRepository.requestJoin(institutionId, clubId, principal.userId);
+  const membership = await clubMembershipRepository.requestJoin(
+    institutionId,
+    clubId,
+    principal.userId,
+  );
   if (!membership) throw Errors.internal();
 
   await recordAudit({
@@ -246,12 +265,16 @@ export async function requestMembership(
   });
 
   // Club admins are the ones who can act on this.
-  await notifyUsers(institutionId, club.adminUserIds.map((id) => String(id)), {
-    type: NotificationType.CLUB,
-    title: `New membership request for ${club.name}`,
-    body: 'A student has asked to join your club.',
-    link: `/clubs/${clubId}`,
-  });
+  await notifyUsers(
+    institutionId,
+    club.adminUserIds.map((id) => String(id)),
+    {
+      type: NotificationType.CLUB,
+      title: `New membership request for ${club.name}`,
+      body: 'A student has asked to join your club.',
+      link: `/clubs/${clubId}`,
+    },
+  );
 
   return toMembershipDTO(institutionId, membership, club.name);
 }
@@ -317,6 +340,51 @@ export async function decideMembership(
   return toMembershipDTO(institutionId, decided, club.name);
 }
 
+/**
+ * Leave a club (or withdraw a pending request).
+ *
+ * The club chat's membership is derived from this one, so it is re-synced immediately: leaving
+ * the club takes the club chat — and its attachments — with it on the very next request.
+ * A club admin must hand the club over first; an admin-less club would be unmanageable.
+ */
+export async function leaveClub(
+  principal: Principal,
+  clubId: string,
+  context: AuditContext,
+): Promise<{ status: 'LEFT' }> {
+  const { institutionId, userId } = principal;
+
+  const club = await clubRepository.findById(institutionId, clubId);
+  if (!club) throw Errors.notFound();
+  if (club.adminUserIds.some((id) => String(id) === userId)) {
+    throw Errors.conflict(
+      'Club admins cannot leave their club. Ask a system administrator to hand it over first.',
+    );
+  }
+
+  const previous = await clubMembershipRepository.leave(institutionId, clubId, userId);
+  // Not a member, never asked, or already left: nothing to leave.
+  if (!previous) throw Errors.notFound();
+
+  if (previous.status === ClubMembershipStatus.APPROVED) {
+    await clubRepository.adjustMemberCount(institutionId, clubId, -1);
+  }
+  await syncClubChatMembership(institutionId, clubId);
+
+  await recordAudit({
+    institutionId,
+    actorUserId: userId,
+    action: AuditAction.CLUB_MEMBERSHIP_LEFT,
+    resourceType: 'ClubMembership',
+    resourceId: String(previous._id),
+    result: AuditResult.SUCCESS,
+    context,
+    reason: previous.status === ClubMembershipStatus.APPROVED ? 'LEFT' : 'REQUEST_WITHDRAWN',
+  });
+
+  return { status: 'LEFT' };
+}
+
 export async function listClubMembers(
   principal: Principal,
   clubId: string,
@@ -330,7 +398,11 @@ export async function listClubMembers(
 
   const isClubAdmin = club.adminUserIds.some((id) => String(id) === principal.userId);
   // Pending requests are only visible to the people who can act on them.
-  if (status === ClubMembershipStatus.REQUESTED && !isClubAdmin && !principal.roles.includes(Role.SYSTEM_ADMIN)) {
+  if (
+    status === ClubMembershipStatus.REQUESTED &&
+    !isClubAdmin &&
+    !principal.roles.includes(Role.SYSTEM_ADMIN)
+  ) {
     throw Errors.forbidden();
   }
 
@@ -343,7 +415,14 @@ export async function listClubMembers(
 
 async function toMembershipDTO(
   institutionId: string,
-  membership: { _id: unknown; clubId: unknown; userId: unknown; role: ClubMemberRole; status: ClubMembershipStatus; createdAt: Date },
+  membership: {
+    _id: unknown;
+    clubId: unknown;
+    userId: unknown;
+    role: ClubMemberRole;
+    status: ClubMembershipStatus;
+    createdAt: Date;
+  },
   clubName: string,
 ): Promise<ClubMembershipDTO> {
   const user = await userRepository.findById(institutionId, String(membership.userId));

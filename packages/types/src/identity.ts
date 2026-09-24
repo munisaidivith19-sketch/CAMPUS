@@ -84,6 +84,10 @@ export const AuditAction = {
   /** The scanner flagged the upload; its bytes were destroyed and the row kept as evidence. */
   FILE_MALWARE_DETECTED: 'FILE_MALWARE_DETECTED',
   FILE_DELETED: 'FILE_DELETED',
+
+  // --- Moderation & clubs (Phase 3 completion) ---
+  REPORT_DISMISSED: 'REPORT_DISMISSED',
+  CLUB_MEMBERSHIP_LEFT: 'CLUB_MEMBERSHIP_LEFT',
 } as const;
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 

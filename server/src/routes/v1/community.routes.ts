@@ -20,11 +20,14 @@ import {
   eventQuerySchema,
   idParamSchema,
   moderationDecisionSchema,
+  moderationQueueQuerySchema,
+  moderationReportDecisionSchema,
   notificationQuerySchema,
   paginationQuerySchema,
   reportContentSchema,
   searchQuerySchema,
 } from '@campusconnect/validation';
+import * as moderation from '../../controllers/moderation.controller.js';
 import * as community from '../../controllers/community.controller.js';
 import { authenticate, resolveTenant } from '../../middleware/auth.middleware.js';
 import { authorize } from '../../middleware/authorize.middleware.js';
@@ -99,6 +102,14 @@ communityRouter.post(
   authorize({ anyOf: [Permission.CLUB_JOIN] }),
   validate({ params: idParamSchema }),
   community.postClubJoin,
+);
+
+/** Leave a club (or withdraw a request). The derived club-chat membership goes with it. */
+communityRouter.post(
+  '/clubs/:id/leave',
+  authorize({ anyOf: [Permission.CLUB_JOIN] }),
+  validate({ params: idParamSchema }),
+  community.postClubLeave,
 );
 
 // --- Events ------------------------------------------------------------------
@@ -198,7 +209,7 @@ communityRouter.post(
   community.postCommentReaction,
 );
 
-// --- Reporting & moderation (backend only in Part A; the queue UI is Part B) ----
+// --- Reporting & moderation ---------------------------------------------------------
 
 communityRouter.post(
   '/reports',
@@ -226,6 +237,32 @@ communityRouter.post(
   authorize({ anyOf: [Permission.MODERATION_REVIEW] }),
   validate({ params: idParamSchema, body: moderationDecisionSchema }),
   community.postModerationDecision,
+);
+
+/**
+ * The grouped, scope-narrowed moderation queue. Open to anyone who moderates anything —
+ * community content (`moderation:review`) or chats (`chat:moderate`) — and the service shows
+ * each of them only what their scope reaches.
+ */
+communityRouter.get(
+  '/moderation/reports',
+  authorize({ anyOf: [Permission.MODERATION_REVIEW, Permission.CHAT_MODERATE] }),
+  validate({ query: moderationQueueQuerySchema }),
+  moderation.getReports,
+);
+
+communityRouter.post(
+  '/moderation/reports/decide',
+  authorize({ anyOf: [Permission.MODERATION_REVIEW, Permission.CHAT_MODERATE] }),
+  validate({ body: moderationReportDecisionSchema }),
+  moderation.postDecision,
+);
+
+communityRouter.get(
+  '/moderation/history',
+  authorize({ anyOf: [Permission.MODERATION_REVIEW, Permission.CHAT_MODERATE] }),
+  validate({ query: paginationQuerySchema }),
+  moderation.getHistory,
 );
 
 // --- Notifications & search -----------------------------------------------------

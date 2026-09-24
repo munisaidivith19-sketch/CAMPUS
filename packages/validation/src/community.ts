@@ -178,7 +178,7 @@ export const createCommentSchema = z.object({
 });
 
 export const reportContentSchema = z.object({
-  // CHAT_MESSAGE is reportable from Part C-2 on; the moderation-queue UI for it is deferred.
+  // CHAT_MESSAGE is reportable from inside the chat; the queue routes it to that chat's moderators.
   targetType: z.enum(['DISCUSSION', 'COMMENT', 'CHAT_MESSAGE']),
   targetId: objectIdSchema,
   reason: z.string().trim().min(5, 'Say what is wrong with this content').max(500),
@@ -190,6 +190,33 @@ export const moderationDecisionSchema = z.object({
   note: z.string().trim().max(500).optional(),
 });
 export type ModerationDecisionInput = z.infer<typeof moderationDecisionSchema>;
+
+export const moderationQueueQuerySchema = paginationQuerySchema.extend({
+  status: z.enum(['OPEN', 'ACTIONED', 'DISMISSED']).default('OPEN'),
+});
+export type ModerationQueueQuery = z.infer<typeof moderationQueueQuerySchema>;
+
+/**
+ * A decision from the moderation queue. Removing someone's content needs a stated reason —
+ * it is shown in the history and recorded in the audit trail.
+ */
+export const moderationReportDecisionSchema = z
+  .object({
+    targetType: z.enum(['DISCUSSION', 'COMMENT', 'CHAT_MESSAGE']),
+    targetId: objectIdSchema,
+    action: z.enum(['REMOVE', 'DISMISS']),
+    note: z.string().trim().max(500).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.action === 'REMOVE' && (!value.note || value.note.length < 5)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['note'],
+        message: 'Say why this is being removed',
+      });
+    }
+  });
+export type ModerationReportDecisionInput = z.infer<typeof moderationReportDecisionSchema>;
 
 // --- Notifications & search ---------------------------------------------------
 

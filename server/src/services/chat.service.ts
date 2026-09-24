@@ -810,7 +810,7 @@ export async function deleteMessage(
 }
 
 /** What a moderator's `chat:moderate` actually reaches, from the existing academic scope. */
-async function moderationReach(principal: Principal): Promise<ModerationReach> {
+export async function moderationReach(principal: Principal): Promise<ModerationReach> {
   if (!principal.permissions.includes(Permission.CHAT_MODERATE)) {
     return { classIds: [], clubIds: [] };
   }
@@ -819,7 +819,12 @@ async function moderationReach(principal: Principal): Promise<ModerationReach> {
   const classIds = await resolveVisibleClassIds(principal.institutionId, scope);
 
   const clubs = await clubRepository.listAdministeredBy(principal.institutionId, principal.userId);
-  return { classIds, clubIds: clubs.map((club) => String(club._id)) };
+  return {
+    classIds,
+    clubIds: clubs.map((club) => String(club._id)),
+    institutionWide:
+      principal.roles.includes(Role.PRINCIPAL) || principal.roles.includes(Role.SYSTEM_ADMIN),
+  };
 }
 
 export async function markRead(
@@ -891,15 +896,101 @@ export async function chatPeers(principal: Principal): Promise<string[]> {
   return memberships.map((membership) => String(membership.chatId));
 }
 
-/** Does this message exist and is it reportable by this caller? Used by the report path. */
+/**
+ * Does this message exist and is it reportable by this caller? Used by the report path, and
+ * returns where the message lives, which is what routes the report to the right moderators.
+ */
 export async function assertReportableMessage(
   principal: Principal,
   messageId: string,
-): Promise<void> {
+): Promise<{ kind: ChatType; chatId: string; sourceRef: string | null }> {
   const message = await chatMessageRepository.findById(principal.institutionId, messageId);
   if (!message) throw Errors.notFound();
   // You may only report a message in a chat you can actually see.
-  await loadAccess(principal, String(message.chatId));
+  const { chat } = await loadAccess(principal, String(message.chatId));
+  return {
+    kind: chat.type,
+    chatId: String(chat._id),
+    sourceRef: chat.sourceRef ? String(chat.sourceRef) : null,
+  };
+}
+
+/**
+ * What a moderator sees of a reported message: its text (unless it is already gone), who sent
+ * it, and the chat's name. Only ever called for messages the moderator's scope reaches.
+ */
+export async function messageForModeration(
+  institutionId: string,
+  messageId: string,
+): Promise<{
+  text: string | null;
+  author: string | null;
+  createdAt: Date;
+  deleted: boolean;
+  chatName: string;
+} | null> {
+  const message = await chatMessageRepository.findById(institutionId, messageId);
+  if (!message) return null;
+  const chat = await chatRepository.findById(institutionId, String(message.chatId));
+  const deleted = Boolean(message.deletedAt);
+  const names = await namesFor(
+    institutionId,
+    message.senderUserId ? [String(message.senderUserId)] : [],
+  );
+  return {
+    text: deleted ? null : message.body,
+    author: message.senderUserId ? (names.get(String(message.senderUserId)) ?? null) : null,
+    createdAt: message.createdAt,
+    deleted,
+    chatName: chat?.name ?? 'Chat',
+  };
+}
+
+/**
+ * Remove a message from the moderation queue.
+ *
+ * Unlike the in-chat delete, this does not require the moderator to be a member of the chat —
+ * a principal is not in every class chat. The moderation scope is what decides, via the same
+ * `canModerateDelete` rule, and a message outside it is NOT_FOUND. Audited without the body.
+ */
+export async function removeMessageAsModerator(
+  principal: Principal,
+  messageId: string,
+  note: string,
+  context: AuditContext,
+): Promise<'REMOVED' | 'ALREADY_REMOVED'> {
+  const { institutionId, userId } = principal;
+  const message = await chatMessageRepository.findById(institutionId, messageId);
+  if (!message) throw Errors.notFound();
+  const chat = await chatRepository.findById(institutionId, String(message.chatId));
+  if (!chat) throw Errors.notFound();
+  if (!chatAccess.canModerateDelete(principal, factsFor(chat), await moderationReach(principal))) {
+    throw Errors.notFound();
+  }
+  if (message.deletedAt) return 'ALREADY_REMOVED';
+
+  const chatId = String(chat._id);
+  await chatMessageRepository.softDelete(institutionId, messageId, userId);
+  await deleteFilesForResource(
+    institutionId,
+    LinkedResourceType.CHAT_MESSAGE,
+    messageId,
+    userId,
+    'MODERATOR',
+  );
+  await recordAudit({
+    institutionId,
+    actorUserId: userId,
+    action: AuditAction.CONTENT_REMOVED,
+    resourceType: 'CHAT_MESSAGE',
+    resourceId: messageId,
+    result: AuditResult.SUCCESS,
+    context,
+    // The moderator's own reason, never the message body.
+    reason: `Moderator removed a message in chat ${chatId}: ${note.slice(0, 200)}`,
+  });
+  realtime.toChat(institutionId, chatId, 'message:deleted', { chatId, messageId });
+  return 'REMOVED';
 }
 
 /**

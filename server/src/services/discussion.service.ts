@@ -23,7 +23,9 @@ import type {
 } from '@campusconnect/validation';
 import { commentRepository, discussionRepository } from '../repositories/discussion.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
-import type { PageRequest } from '../repositories/base.repository.js';
+import { toObjectId, type PageRequest } from '../repositories/base.repository.js';
+import { contentReportRepository } from '../repositories/moderation.repository.js';
+import type { ReportContext } from '../models/ContentReport.model.js';
 import { Errors } from '../utils/errors.js';
 import { assertReportableMessage } from './chat.service.js';
 import { recordAudit, type AuditContext } from './audit.service.js';
@@ -35,7 +37,10 @@ async function authorNameMap(institutionId: string): Promise<Map<string, string>
   return new Map(users.items.map((user) => [String(user._id), user.fullName]));
 }
 
-function toDiscussionDTO(discussion: DiscussionDocument, names: Map<string, string>): DiscussionDTO {
+function toDiscussionDTO(
+  discussion: DiscussionDocument,
+  names: Map<string, string>,
+): DiscussionDTO {
   return {
     id: String(discussion._id),
     title: discussion.title,
@@ -191,12 +196,18 @@ export async function toggleCommentReaction(
   const existing = await commentRepository.findAnyById(institutionId, commentId);
   if (!existing || existing.status !== ContentStatus.VISIBLE) throw Errors.notFound();
 
-  const updated = await commentRepository.toggleReaction(institutionId, commentId, principal.userId);
+  const updated = await commentRepository.toggleReaction(
+    institutionId,
+    commentId,
+    principal.userId,
+  );
   if (!updated) throw Errors.notFound();
 
   const names = await authorNameMap(institutionId);
   return toCommentDTO(updated, names, principal.userId);
 }
+
+const toObjectIdOrNull = (id: string | null) => (id ? toObjectId(id) : null);
 
 /** Report content for review. Anyone may report; the count drives the moderation queue. */
 export async function reportContent(
@@ -206,19 +217,39 @@ export async function reportContent(
 ): Promise<{ status: 'REPORTED' }> {
   const { institutionId } = principal;
 
+  // Each report is a row, once per reporter per target: a repeat report changes nothing, and a
+  // report a moderator already dismissed stays dismissed. The Part A counters are bumped only for
+  // a genuinely new report, so they count reporters rather than clicks.
+  const record = (context: ReportContext): Promise<boolean> =>
+    contentReportRepository.recordOnce(institutionId, {
+      targetType: input.targetType,
+      targetId: input.targetId,
+      reporterUserId: principal.userId,
+      reason: input.reason,
+      context,
+    });
+
   if (input.targetType === 'CHAT_MESSAGE') {
     // Reportable only from inside the chat: the membership check is what stops this endpoint
-    // from becoming an oracle for "does this message id exist?". The moderation-queue UI for
-    // chat reports is deferred; the audit entry below is the record for now.
-    await assertReportableMessage(principal, input.targetId);
+    // from becoming an oracle for "does this message id exist?".
+    const where = await assertReportableMessage(principal, input.targetId);
+    await record({
+      kind: where.kind,
+      chatId: toObjectIdOrNull(where.chatId),
+      sourceRef: toObjectIdOrNull(where.sourceRef),
+    });
   } else if (input.targetType === 'DISCUSSION') {
     const discussion = await discussionRepository.findVisibleById(institutionId, input.targetId);
     if (!discussion) throw Errors.notFound();
-    await discussionRepository.incrementReportCount(institutionId, input.targetId);
+    if (await record({ kind: 'COMMUNITY' })) {
+      await discussionRepository.incrementReportCount(institutionId, input.targetId);
+    }
   } else {
     const comment = await commentRepository.findAnyById(institutionId, input.targetId);
     if (!comment || comment.status !== ContentStatus.VISIBLE) throw Errors.notFound();
-    await commentRepository.incrementReportCount(institutionId, input.targetId);
+    if (await record({ kind: 'COMMUNITY' })) {
+      await commentRepository.incrementReportCount(institutionId, input.targetId);
+    }
   }
 
   await recordAudit({
@@ -299,11 +330,24 @@ export async function moderateContent(
         input.note ?? null,
       );
       if (!removed) throw Errors.conflict('This content has already been removed.');
-      await discussionRepository.incrementCommentCount(institutionId, String(comment.discussionId), -1);
+      await discussionRepository.incrementCommentCount(
+        institutionId,
+        String(comment.discussionId),
+        -1,
+      );
     } else {
       await commentRepository.clearReports(institutionId, targetId);
     }
   }
+
+  // Keep the report records in step with the decision, so the queue and history agree.
+  await contentReportRepository.closeOpen(
+    institutionId,
+    targetType,
+    targetId,
+    removing ? 'ACTIONED' : 'DISMISSED',
+    principal.userId,
+  );
 
   await recordAudit({
     institutionId,

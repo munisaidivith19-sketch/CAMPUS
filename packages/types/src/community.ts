@@ -236,3 +236,53 @@ export interface SearchResultDTO {
   link: string;
   occurredAt: string | null;
 }
+
+// --- Moderation (Phase 3 completion) ---------------------------------------------
+
+export const ReportTargetType = {
+  DISCUSSION: 'DISCUSSION',
+  COMMENT: 'COMMENT',
+  CHAT_MESSAGE: 'CHAT_MESSAGE',
+} as const;
+export type ReportTargetType = (typeof ReportTargetType)[keyof typeof ReportTargetType];
+
+/** Where reported content lives — which decides who may moderate it. */
+export type ReportContextKind = 'COMMUNITY' | 'DIRECT' | 'GROUP' | 'CLASS' | 'CLUB';
+
+/**
+ * One reported item in the moderation queue, with every open report on it grouped together.
+ *
+ * `preview` is plain text, truncated, and null for content that is not moderatable (direct
+ * messages and private groups are recorded but never opened up). `reporters` is present only
+ * for callers who may read the audit trail; everyone else sees reasons without names.
+ */
+export interface ModerationQueueItemDTO {
+  targetType: ReportTargetType;
+  targetId: string;
+  context: { kind: ReportContextKind; name: string | null };
+  reportCount: number;
+  firstReportedAt: string;
+  lastReportedAt: string;
+  reports: Array<{
+    reason: string;
+    reportedAt: string;
+    reporter: { userId: string; fullName: string } | null;
+  }>;
+  preview: { text: string; author: string | null; createdAt: string | null } | null;
+  /** False for private conversations: the reports are recorded, but there is nothing to act on. */
+  actionable: boolean;
+  /** The content is already gone (removed or deleted by its author). */
+  alreadyRemoved: boolean;
+}
+
+export interface ModerationActionDTO {
+  id: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  action: 'REMOVE' | 'DISMISS';
+  actor: { userId: string; fullName: string };
+  note: string | null;
+  reportCount: number;
+  context: { kind: ReportContextKind };
+  at: string;
+}

@@ -8,7 +8,7 @@ only when its definition of done holds **and** its commits exist on `main`.
 | M0  | Baseline + progress ledger                                  | ✅     | dbb6a70       | 441 (7 skipped) |
 | M1  | Fix `npm start` / real package builds                       | ✅     | de869c6       | 441 (7 skipped) |
 | M2  | Secure file sharing (+ chat & announcement attachments)     | ✅     | (see git log) | 520 (9 skipped) |
-| M3  | Moderation queue UI + chat reports + leave club             | ⬜     |               |                 |
+| M3  | Moderation queue UI + chat reports + leave club             | ✅     | (see git log) | 547 (9 skipped) |
 | M4  | Phase 3 role dashboards                                     | ⬜     |               |                 |
 | M5  | Playwright E2E                                              | ⬜     |               |                 |
 | M6  | Close Phase 3                                               | ⬜     |               |                 |
@@ -77,6 +77,31 @@ ravi (other tenant) GET /files/:id/meta → status           404
 Also: `TEST_CLAMAV_HOST=localhost npx vitest run tests/integration/clamav-live.test.ts` → 2/2
 passed against the real clamd.
 
+## M3 live check (2026-09-24)
+
+Same two-instance setup as M2 (fresh seed into `campusconnect_live`).
+
+```
+bhavana has a class chat                                   2022-2026 A
+chirag reports the class message on B → status             201
+meera (section mentor) queue on B                          ["CHAT_MESSAGE/CLASS x1 actionable=true reporter=hidden"]
+rajesh (HOD) queue on A                                    ["CHAT_MESSAGE/CLASS","DISCUSSION/COMMUNITY"]
+vikram (faculty, no moderation) GET queue → status         403
+principal queue (all, reporters shown)                     ["CHAT_MESSAGE/CLASS reporter=shown","DISCUSSION/COMMUNITY reporter=shown"]
+meera removes on B → status, body                          200 {"status":"REMOVED","closedReports":1}
+bhavana sees message:deleted on A (cross-instance)         {"chatId":"6ab4934c015c9c9f755cdc66","messageId":"6ab4934d015c9c9f755cdcdd"}
+meera history[0]                                           {"action":"REMOVE","note":"Offensive language in class chat.","reportCount":1}
+principal sees DM report: actionable, preview              false null
+meera sees DM report                                       false
+principal tries to remove a DM → status                    409
+chirag is a member of                                      Coding Club
+chirag opens club chat before leaving → status             200
+chirag leaves club on B → status                           200
+chirag opens club chat after leaving (on A) → status       404
+rejoin request → status                                    201
+ravi (other tenant, student) GET queue → status            403
+```
+
 ## Decisions taken
 
 - **M0 — branch.** The local branch is `sai` and tracks `origin/main`. Pushing means
@@ -127,6 +152,30 @@ passed against the real clamd.
 - **M2 — test config shrinks limits** (1 MiB max, 3 MiB quota, 25 uploads/h) so the size, quota
   and rate paths run with small fixtures. The fake clamd flags a harmless marker, not EICAR.
   EICAR is used only by the live, `TEST_CLAMAV_HOST`-gated suite, assembled in memory.
+
+- **M3 — per-report records (`ContentReport`) alongside the Part A counters.** The counters
+  keep the old `/moderation/queue` working. The new queue groups the records. One row per
+  reporter per target: repeats are no-ops and a dismissed report stays dismissed. A new reporter
+  does raise the item again.
+- **M3 — routing by where the content lives.** Community → `moderation:review`. Class chat →
+  mentor/HOD/principal via the academic scope. Club chat → its admins plus principal/admin. The
+  `ModerationReach` gains `institutionWide`, so the principal/system admin can also moderate club
+  chats (before, club chats were club-admin only).
+- **M3 — moderator removal doesn't require chat membership** (`removeMessageAsModerator`). A
+  principal or HOD isn't in every class chat. The scope rule (`canModerateDelete`) decides.
+- **M3 — DM/private-group reports are visible only to institution-wide moderators**, with no
+  preview and no chat name. Deciding one returns 409.
+- **M3 — reporter names only for `audit:read` holders** (principal, system admin).
+- **M3 — new endpoints next to Part A's** (`/moderation/reports`, `/reports/decide`,
+  `/history`), leaving the pinned Part A contract unchanged. The Part A decide path also closes
+  the report records.
+- **M3 — leave club.** Also withdraws a pending request. A club admin gets 409 (no orphaned
+  clubs). Rejoining reuses the row.
+- **M3 — the web nav and route guard accept "any of" permissions** (moderation = review OR chat
+  moderate). Chat messages gain a Report action.
+- **M2 — `.gitignore`'s bare `storage/` hid `server/src/infra/storage`**, so one push went out
+  without the storage source. Fixed by anchoring it to `/storage/`, pushed right after
+  (0880d1f).
 
 ## Blocked / needs owner
 

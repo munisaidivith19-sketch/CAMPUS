@@ -1,7 +1,7 @@
 # Design System
 
-**Design language: Glassmorphism + Liquid UI.** CampusConnect must read as a *premium modern SaaS
-platform* — not a traditional ERP, old college portal, Bootstrap dashboard, or generic admin
+**Design language: Glassmorphism + Liquid UI.** CampusConnect must read as a _premium modern SaaS
+platform_ — not a traditional ERP, old college portal, Bootstrap dashboard, or generic admin
 template. This document is the design foundation; tokens live in `packages/ui/src/tokens.ts` and
 are consumed by both web (Tailwind) and mobile (NativeWind).
 

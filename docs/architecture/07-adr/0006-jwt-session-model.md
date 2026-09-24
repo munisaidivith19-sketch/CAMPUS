@@ -33,7 +33,7 @@ Accepted and implemented as specified, with these details settled during the bui
 
 - **Access token** — a JWT carrying `sub`, `iid` (tenant), `sid` (session) and `roles`, typed
   with a `typ: "access"` claim so a challenge or refresh token can never be substituted for it.
-  Permissions are *not* in the token; they are resolved per request from the RBAC data, so a
+  Permissions are _not_ in the token; they are resolved per request from the RBAC data, so a
   role's grants can change without waiting for tokens to expire.
 - **Refresh token** — opaque 32-byte random, never a JWT. Only its SHA-256 hash is stored, on
   the `Session` document. Web receives it as an httpOnly/SameSite=Lax cookie scoped to
@@ -42,7 +42,7 @@ Accepted and implemented as specified, with these details settled during the bui
 - **Reuse detection** — each session retains the hashes it has rotated away. Presenting a
   retired token revokes the entire session and writes a `REFRESH_REUSE_DETECTED` audit entry.
 - **Accepted window** — because access-token verification is stateless, revoking a session stops
-  *renewal* immediately but an already-issued access token remains valid until it expires (at
+  _renewal_ immediately but an already-issued access token remains valid until it expires (at
   most `JWT_ACCESS_TTL`, default 15m). This is the cost of the stateless fast path and is
   accepted deliberately; a suspended user also cannot refresh, so the window is bounded.
 - **MFA / new-device gates** — enforced before a session is created, carried between steps by a

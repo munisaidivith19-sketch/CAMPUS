@@ -12,14 +12,14 @@ strong editor tooling. `strict` mode plus `noUncheckedIndexedAccess` is enabled 
 
 ## Backend
 
-| Concern        | Choice                     | Why                                                        | Rejected / deferred                     |
-| -------------- | -------------------------- | ---------------------------------------------------------- | --------------------------------------- |
-| Runtime        | Node.js 20 LTS             | LTS, stable, ubiquitous, free                              | Bun (less mature for this scope)        |
-| HTTP framework | Express 4                  | Simple, battle-tested, huge middleware ecosystem           | NestJS (heavier), Fastify (fine, less familiar to team) |
-| API style      | REST, versioned `/api/v1`  | Simple, cacheable, matches CRUD-heavy domain               | GraphQL (auth/tenant complexity, N+1 risk early) |
-| Realtime       | Socket.IO                  | Rooms model fits chat/notifications; reconnection built-in | raw ws (more plumbing)                  |
-| Validation     | Zod                        | Shared schemas server+client; TS type inference            | Joi (no TS inference), class-validator  |
-| ORM/ODM        | Mongoose                   | Mature MongoDB ODM, schema validation, middleware          | Prisma Mongo (weaker Mongo feature support) |
+| Concern        | Choice                    | Why                                                        | Rejected / deferred                                     |
+| -------------- | ------------------------- | ---------------------------------------------------------- | ------------------------------------------------------- |
+| Runtime        | Node.js 20 LTS            | LTS, stable, ubiquitous, free                              | Bun (less mature for this scope)                        |
+| HTTP framework | Express 4                 | Simple, battle-tested, huge middleware ecosystem           | NestJS (heavier), Fastify (fine, less familiar to team) |
+| API style      | REST, versioned `/api/v1` | Simple, cacheable, matches CRUD-heavy domain               | GraphQL (auth/tenant complexity, N+1 risk early)        |
+| Realtime       | Socket.IO                 | Rooms model fits chat/notifications; reconnection built-in | raw ws (more plumbing)                                  |
+| Validation     | Zod                       | Shared schemas server+client; TS type inference            | Joi (no TS inference), class-validator                  |
+| ORM/ODM        | Mongoose                  | Mature MongoDB ODM, schema validation, middleware          | Prisma Mongo (weaker Mongo feature support)             |
 
 ## Database
 
@@ -35,39 +35,39 @@ function (with documented degradation) when Redis is absent.
 
 ## Web frontend
 
-| Concern        | Choice                | Why                                                          |
-| -------------- | --------------------- | ------------------------------------------------------------ |
-| Framework      | React 18              | Mandated; largest ecosystem                                  |
-| Build tool     | Vite                  | Fast dev server, first-class TS, simple env handling         |
-| Styling        | Tailwind CSS          | Token-driven utility CSS; pairs with the design system       |
-| State          | Redux Toolkit         | Predictable global state; RTK Query for server cache         |
-| Routing        | React Router          | Standard SPA routing with data APIs                          |
-| HTTP           | Axios                 | Interceptors for auth refresh + error envelope handling      |
-| Forms          | React Hook Form + Zod | Perf + shared validation schemas                             |
-| Animation      | Framer Motion         | Declarative transitions; respects `prefers-reduced-motion`   |
-| Icons          | Lucide React          | Clean, consistent, tree-shakeable                            |
+| Concern    | Choice                | Why                                                        |
+| ---------- | --------------------- | ---------------------------------------------------------- |
+| Framework  | React 18              | Mandated; largest ecosystem                                |
+| Build tool | Vite                  | Fast dev server, first-class TS, simple env handling       |
+| Styling    | Tailwind CSS          | Token-driven utility CSS; pairs with the design system     |
+| State      | Redux Toolkit         | Predictable global state; RTK Query for server cache       |
+| Routing    | React Router          | Standard SPA routing with data APIs                        |
+| HTTP       | Axios                 | Interceptors for auth refresh + error envelope handling    |
+| Forms      | React Hook Form + Zod | Perf + shared validation schemas                           |
+| Animation  | Framer Motion         | Declarative transitions; respects `prefers-reduced-motion` |
+| Icons      | Lucide React          | Clean, consistent, tree-shakeable                          |
 
 ## Mobile
 
-| Concern        | Choice                        | Why                                            |
-| -------------- | ----------------------------- | ---------------------------------------------- |
-| Framework      | React Native + Expo           | One codebase iOS/Android; Expo = ₹0 tooling    |
-| Styling        | NativeWind                    | Tailwind tokens shared with web where possible |
-| State          | Redux Toolkit                 | Same model as web                              |
-| Navigation     | React Navigation              | De-facto RN standard                           |
-| HTTP/realtime  | Axios + Socket.IO client      | Same contracts as web                          |
-| Secure storage | Expo SecureStore              | OS keychain for refresh tokens                 |
-| Device         | Expo Camera / Location / Notifications | QR scan, SOS location, push          |
+| Concern        | Choice                                 | Why                                            |
+| -------------- | -------------------------------------- | ---------------------------------------------- |
+| Framework      | React Native + Expo                    | One codebase iOS/Android; Expo = ₹0 tooling    |
+| Styling        | NativeWind                             | Tailwind tokens shared with web where possible |
+| State          | Redux Toolkit                          | Same model as web                              |
+| Navigation     | React Navigation                       | De-facto RN standard                           |
+| HTTP/realtime  | Axios + Socket.IO client               | Same contracts as web                          |
+| Secure storage | Expo SecureStore                       | OS keychain for refresh tokens                 |
+| Device         | Expo Camera / Location / Notifications | QR scan, SOS location, push                    |
 
 ## Infrastructure & dev services (all free/local)
 
-| Service | Purpose                                        | Local provider          |
-| ------- | ---------------------------------------------- | ----------------------- |
-| MongoDB | primary DB                                     | `mongo:7` (Docker)      |
-| Redis   | rate limit / cache / queues                    | `redis:7-alpine`        |
-| Mailpit | catches dev email, web UI                      | `axllent/mailpit`       |
-| ClamAV  | upload malware scanning                        | `clamav/clamav` (profile-gated) |
-| nginx   | reverse proxy / TLS / headers (prod-like)      | `infrastructure/nginx`  |
+| Service | Purpose                                   | Local provider                  |
+| ------- | ----------------------------------------- | ------------------------------- |
+| MongoDB | primary DB                                | `mongo:7` (Docker)              |
+| Redis   | rate limit / cache / queues               | `redis:7-alpine`                |
+| Mailpit | catches dev email, web UI                 | `axllent/mailpit`               |
+| ClamAV  | upload malware scanning                   | `clamav/clamav` (profile-gated) |
+| nginx   | reverse proxy / TLS / headers (prod-like) | `infrastructure/nginx`          |
 
 ## Security libraries (established, never hand-rolled)
 

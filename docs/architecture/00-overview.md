@@ -1,7 +1,7 @@
 # CampusConnect — Architecture Overview
 
 > **This directory is the single architectural source of truth.** Per the build rules,
-> the architecture is *frozen* here at the end of Phase 1. Later phases must not rebuild
+> the architecture is _frozen_ here at the end of Phase 1. Later phases must not rebuild
 > it; if a requirement conflicts with what is written here, the process is: (1) identify
 > the conflict, (2) explain the technical impact, (3) propose the smallest safe change,
 > (4) never introduce a silent breaking change, (5) proceed only after approval.
@@ -91,22 +91,22 @@ attempt is audit-logged where appropriate. See `docs/security/SECURITY.md`.
 
 A single npm-workspaces monorepo is used so that **types and validation schemas are shared**
 between the server and both clients. This eliminates the classic drift between frontend and
-backend contracts: a Zod schema in `packages/validation` is the *one* definition, imported by
+backend contracts: a Zod schema in `packages/validation` is the _one_ definition, imported by
 the server (to validate) and by the web/mobile forms (to validate + infer TS types). See
 `01-tech-stack.md` for why npm workspaces over Nx/Turbo/pnpm at this stage.
 
 ## 6. The documents in this directory
 
-| File                          | Contents                                                        |
-| ----------------------------- | --------------------------------------------------------------- |
-| `00-overview.md`              | This file — principles, context, pipeline.                      |
-| `01-tech-stack.md`            | Every technology choice with rationale and rejected options.    |
-| `02-folder-structure.md`      | The full annotated monorepo tree.                               |
-| `03-backend-architecture.md`  | Layering, module boundaries, error model, transactions.         |
-| `04-frontend-architecture.md` | Web app structure, state, routing, data fetching.               |
-| `05-mobile-architecture.md`   | Expo RN structure, navigation, secure storage.                  |
-| `06-multi-tenancy.md`         | Tenant model, isolation strategy, enforcement.                  |
-| `07-adr/`                     | Architecture Decision Records (one file per significant call).  |
+| File                          | Contents                                                       |
+| ----------------------------- | -------------------------------------------------------------- |
+| `00-overview.md`              | This file — principles, context, pipeline.                     |
+| `01-tech-stack.md`            | Every technology choice with rationale and rejected options.   |
+| `02-folder-structure.md`      | The full annotated monorepo tree.                              |
+| `03-backend-architecture.md`  | Layering, module boundaries, error model, transactions.        |
+| `04-frontend-architecture.md` | Web app structure, state, routing, data fetching.              |
+| `05-mobile-architecture.md`   | Expo RN structure, navigation, secure storage.                 |
+| `06-multi-tenancy.md`         | Tenant model, isolation strategy, enforcement.                 |
+| `07-adr/`                     | Architecture Decision Records (one file per significant call). |
 
 Cross-cutting concerns each have a dedicated top-level doc: database (`docs/database`),
 API (`docs/api`), security (`docs/security`), deployment (`docs/deployment`), design

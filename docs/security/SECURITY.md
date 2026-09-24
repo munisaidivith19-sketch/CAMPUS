@@ -94,8 +94,8 @@ says so on the page. What chat _does_ guarantee:
 
 Residual risks, stated plainly: an institution administrator with database access can read
 messages; presence is best-effort and per-instance; chat messages are deliberately **not** in
-`/search`; and the moderation-queue UI for reported chat messages is deferred to a later
-increment (reports are recorded and audited in the meantime).
+`/search`; and reports on direct messages and private groups are recorded but never actionable
+and never shown to a moderator.
 
 **Future work:** E2EE for protected DMs and groups, using established libraries only, with the
 moderation consequences designed for rather than discovered.
@@ -114,6 +114,22 @@ failing closed would convert a Redis blip into a campus-wide login outage and wo
 who can disrupt Redis a denial-of-service against every user. The degraded mode still enforces the
 same limit per instance, and the account-protecting controls (Argon2id, the per-challenge OTP
 attempt cap, per-user reset throttling, generic responses, MFA) do not depend on Redis at all.
+
+### Moderation: who sees what
+
+- Reports are **routed by where the content lives**, not only by permission. Community content
+  goes to `moderation:review` holders. Class chats go to that section's mentor, the HOD and the
+  principal. Club chats go to that club's admins and the principal. A moderator without a backing
+  assignment reaches nothing extra. Out of scope is `NOT_FOUND`.
+- **Private conversations are not opened up.** DM and private-group reports are recorded. Only
+  institution-wide moderators see that they exist, with no preview and no action.
+- **Reporter anonymity:** names are shown only to `audit:read` holders, so a mentor reviewing
+  their class chat does not learn which student reported.
+- **Previews are plain text**, control/bidi characters stripped, 280 characters max, rendered by
+  React. Removal needs a stated reason. Removals are soft (body removed, attachments deleted)
+  and audited without the content.
+- **One report per person per item:** repeat reports can't inflate the ranking, and a dismissed
+  report can't be reopened by the same person.
 
 ## 6. Web & API hardening
 

@@ -72,6 +72,15 @@ Grouped by domain. Key fields and relationships are listed; each becomes a
 - **EventRegistration** — institutionId, → event, → userId, status, checkInAt (via QR), certificateRef.
 - **Discussion** — institutionId, authorUserId, category, title, body, tags[], status.
 - **Comment** — institutionId, → discussion(or parentComment), authorUserId, body, reactions{}, reportedCount.
+- **ContentReport** — institutionId, targetType (DISCUSSION / COMMENT / CHAT_MESSAGE), targetId,
+  → reporterUserId, reason, status (OPEN / ACTIONED / DISMISSED), context{kind, chatId,
+  sourceRef}, decidedByUserId, decidedAt. _Phase 3 completion._ One row per reporter per target.
+  Indexes: `{institutionId, targetType, targetId, reporterUserId}` unique (idempotent reports; a
+  dismissed report stays dismissed) and `{institutionId, status, targetType, targetId}` (the
+  grouped queue).
+- **ModerationAction** — institutionId, targetType, targetId, action (REMOVE / DISMISS),
+  → actorUserId, note, reportCount, context. The moderators' own history (never the content).
+  Index `{institutionId, createdAt: -1}`.
 - **Notification** — institutionId, → recipientUserId, type, channels[], payload, readAt. (**TTL** on old read notifications.)
 - **Chat** — institutionId, type(DIRECT/GROUP/CLASS/CLUB), name, → createdByUserId, sourceRef
   (class/club for derived chats), directKey, lastMessageAt. Members live in ChatMembership.

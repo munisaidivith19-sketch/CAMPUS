@@ -6,14 +6,14 @@
 route → middleware chain → controller → service → repository → Mongoose model → MongoDB
 ```
 
-| Layer          | Responsibility                                                      | May import                        |
-| -------------- | ------------------------------------------------------------------- | --------------------------------- |
-| **routes**     | Map HTTP verb+path to a middleware chain + controller method.       | middleware, controllers, validators |
-| **middleware** | Cross-cutting: auth, tenant, rate limit, validation, upload, errors.| utils, policies, config           |
-| **controllers**| Parse the validated request, call one service, shape the response.  | services, utils                   |
-| **services**   | Business rules, orchestration, transactions. The only place rules live. | repositories, other services, utils, policies |
-| **repositories**| Data access. Build safe queries; the only layer touching models.   | models, utils                     |
-| **models**     | Mongoose schemas, indexes, schema-level validation.                 | (mongoose only)                   |
+| Layer            | Responsibility                                                          | May import                                    |
+| ---------------- | ----------------------------------------------------------------------- | --------------------------------------------- |
+| **routes**       | Map HTTP verb+path to a middleware chain + controller method.           | middleware, controllers, validators           |
+| **middleware**   | Cross-cutting: auth, tenant, rate limit, validation, upload, errors.    | utils, policies, config                       |
+| **controllers**  | Parse the validated request, call one service, shape the response.      | services, utils                               |
+| **services**     | Business rules, orchestration, transactions. The only place rules live. | repositories, other services, utils, policies |
+| **repositories** | Data access. Build safe queries; the only layer touching models.        | models, utils                                 |
+| **models**       | Mongoose schemas, indexes, schema-level validation.                     | (mongoose only)                               |
 
 Controllers are **thin**: no DB calls, no business logic. Services are **framework-agnostic**:
 no `req`/`res`. This keeps services unit-testable and lets the same service back both REST and

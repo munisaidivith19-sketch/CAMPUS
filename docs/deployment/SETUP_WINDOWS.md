@@ -7,12 +7,12 @@ free (₹0). Commands are for **PowerShell**.
 
 Install these once:
 
-| Tool | Version | Get it |
-| ---- | ------- | ------ |
-| Node.js | 20.11 LTS+ | https://nodejs.org (LTS installer) |
-| Git | latest | https://git-scm.com |
-| Docker Desktop | latest | https://www.docker.com/products/docker-desktop (enable WSL 2 backend) |
-| VS Code | latest | https://code.visualstudio.com |
+| Tool           | Version    | Get it                                                                |
+| -------------- | ---------- | --------------------------------------------------------------------- |
+| Node.js        | 20.11 LTS+ | https://nodejs.org (LTS installer)                                    |
+| Git            | latest     | https://git-scm.com                                                   |
+| Docker Desktop | latest     | https://www.docker.com/products/docker-desktop (enable WSL 2 backend) |
+| VS Code        | latest     | https://code.visualstudio.com                                         |
 
 Verify:
 
@@ -92,12 +92,12 @@ npm run start -w apps/mobile
 
 ## 6. Common issues
 
-| Symptom | Fix |
-| ------- | --- |
-| `docker compose` errors | Ensure Docker Desktop is running; try `wsl --update`. |
-| Port already in use (27017/6379/4000/5173) | Stop the conflicting process or change the port in `.env` / compose. |
-| Mongo transactions fail | The `mongo-init` service sets up the replica set; re-run `docker compose up -d` and wait for `cc-mongodb` to be healthy. |
-| `npm install` engine warning | Install Node 20.11+ (`nvm-windows` helps manage versions). |
+| Symptom                                    | Fix                                                                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `docker compose` errors                    | Ensure Docker Desktop is running; try `wsl --update`.                                                                    |
+| Port already in use (27017/6379/4000/5173) | Stop the conflicting process or change the port in `.env` / compose.                                                     |
+| Mongo transactions fail                    | The `mongo-init` service sets up the replica set; re-run `docker compose up -d` and wait for `cc-mongodb` to be healthy. |
+| `npm install` engine warning               | Install Node 20.11+ (`nvm-windows` helps manage versions).                                                               |
 
 ## 7. Stopping
 

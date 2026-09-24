@@ -7,14 +7,14 @@ there is no feature code to test yet.
 
 ## Layers & tools
 
-| Layer | Scope | Where | Tool |
-| ----- | ----- | ----- | ---- |
-| **Unit** | Pure services, policies, validators, utils (no I/O) | `server/tests/unit`, package tests | Vitest |
-| **Integration** | API routes end-to-end against an ephemeral MongoDB | `server/tests/integration`, `tests/integration` | Vitest + `mongodb-memory-server` / disposable container + supertest |
-| **API contract** | Request/response envelope + Zod schemas hold | integration suite | Vitest + Zod |
-| **Authorization** | RBAC, resource ownership, tenant isolation | `tests/security` | Vitest (dedicated suites) |
-| **Security** | Cross-tenant access, IDOR/BOLA, injection, upload rules | `tests/security` | Vitest + targeted probes |
-| **E2E** | Critical user journeys in a browser | `tests/e2e` | Playwright (added Phase 3) |
+| Layer             | Scope                                                   | Where                                           | Tool                                                                |
+| ----------------- | ------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------- |
+| **Unit**          | Pure services, policies, validators, utils (no I/O)     | `server/tests/unit`, package tests              | Vitest                                                              |
+| **Integration**   | API routes end-to-end against an ephemeral MongoDB      | `server/tests/integration`, `tests/integration` | Vitest + `mongodb-memory-server` / disposable container + supertest |
+| **API contract**  | Request/response envelope + Zod schemas hold            | integration suite                               | Vitest + Zod                                                        |
+| **Authorization** | RBAC, resource ownership, tenant isolation              | `tests/security`                                | Vitest (dedicated suites)                                           |
+| **Security**      | Cross-tenant access, IDOR/BOLA, injection, upload rules | `tests/security`                                | Vitest + targeted probes                                            |
+| **E2E**           | Critical user journeys in a browser                     | `tests/e2e`                                     | Playwright (added Phase 3)                                          |
 
 `app.ts` builds the Express app without listening, so integration tests import it directly and
 run against a throwaway database — no external services needed.
@@ -53,6 +53,7 @@ The suite needs only MongoDB. Two things are gated on environment variables inst
     the Redis adapter, which cannot be faked with one server.
 
   `TEST_REDIS_URL=redis://localhost:6379 npx vitest run tests/integration/delivery-queue-redis.test.ts tests/integration/chat-realtime-redis.test.ts`
+
 - Everything else — email, push, rate limiting, the delivery queue — runs against in-memory or
   faked backends. No test contacts a live provider.
 

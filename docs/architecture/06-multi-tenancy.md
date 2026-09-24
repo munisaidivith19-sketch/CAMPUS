@@ -26,7 +26,7 @@ on tenant-scoped collections — not a database-per-tenant. Rationale:
 - Simple, ₹0, and operationally trivial for a prototype and small deployments.
 - Enforcement is centralized in code (below), which is auditable and testable.
 - Migrating hot tenants to dedicated databases/clusters later is possible without changing the
-  application's tenant *contract* (recorded as a future ADR if needed).
+  application's tenant _contract_ (recorded as a future ADR if needed).
 
 The trade-off — isolation is enforced by application logic rather than physical separation — is
 mitigated by making the enforcement impossible to forget (see next section) and by security tests
@@ -60,7 +60,7 @@ the shape.
 `POST /auth/register` currently accepts only addresses on `COLLEGE_EMAIL_DOMAIN`, the single
 domain configured for the deployment. **Login already resolves the institution properly**, by
 matching the email domain against the `Institution.domains` registry, so multiple onboarded
-institutions authenticate correctly today; only *self-service signup* is restricted.
+institutions authenticate correctly today; only _self-service signup_ is restricted.
 
 This is a deliberate, recorded gap rather than an oversight. Registration is the one anonymous,
 public write path, so it is held to the narrower rule while the platform is single-institution
@@ -68,7 +68,7 @@ in practice; additional institutions receive their users through provisioning/se
 
 **Phase 5 (institution SaaS multi-tenancy) must close it:** registration resolves the tenant the
 same way login does — from the email domain against the `Institution` registry — and
-`COLLEGE_EMAIL_DOMAIN` is demoted to what it really is, the *primary* institution's seed domain.
+`COLLEGE_EMAIL_DOMAIN` is demoted to what it really is, the _primary_ institution's seed domain.
 The tenant contract itself does not change: the tenant is still derived server-side and never
 supplied by the client. A matching note is carried in `server/src/services/auth.service.ts`.
 

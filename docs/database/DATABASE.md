@@ -19,16 +19,16 @@ by phase. Nothing here is code yet; it is the contract the code will follow.
 
 ## Modeling decisions (the "why")
 
-| Decision | Rationale |
-| -------- | --------- |
-| **Separate `User` from role `*Profile` documents** (`StudentProfile`, `FacultyProfile`, `AlumniProfile`) | `User` holds identity/auth common to everyone; role profiles hold role-specific fields and grow independently. Keeps the auth-critical doc small and fast. |
-| **`Role`/`Permission` as data, not just enums** | Enables adding roles/permissions later without code changes; supports resource- and ABAC-style rules. A cached role→permission map is used at runtime. |
-| **`Attendance` as one document per (student, session/period)** | Enables correct aggregation (`total present / total records`), never averaging percentages; supports the correction+audit workflow. |
-| **Chat split into `Chat` / `ChatMembership` / `ChatMessage`** | Memberships are queried independently (who's in a room, unread counts); messages are unbounded and must be referenced, never embedded. |
-| **One reusable `PermissionRequest` + workflow, not per-module approvals** | Gate pass, hostel leave/outing, event/academic permissions share one approval engine (see API doc). Avoids duplicated workflow logic. |
-| **QR verification via `QRToken`, never PII in the QR** | The QR carries an opaque, short-lived/revocable token id; the server resolves identity. |
-| **`AuditLog` append-only** | Immutable trail for sensitive/admin actions; never stores secrets/OTPs/plaintext. |
-| **Career data split** (`CareerProfile`, `Skill`, `StudentSkill`, `Project`, `Certification`, `CareerGoal`, `SkillGap`, `CareerRoadmap`) | Skills are shared taxonomy; a student's skills/projects/certs are independently listed and matched against jobs. |
+| Decision                                                                                                                                | Rationale                                                                                                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Separate `User` from role `*Profile` documents** (`StudentProfile`, `FacultyProfile`, `AlumniProfile`)                                | `User` holds identity/auth common to everyone; role profiles hold role-specific fields and grow independently. Keeps the auth-critical doc small and fast. |
+| **`Role`/`Permission` as data, not just enums**                                                                                         | Enables adding roles/permissions later without code changes; supports resource- and ABAC-style rules. A cached role→permission map is used at runtime.     |
+| **`Attendance` as one document per (student, session/period)**                                                                          | Enables correct aggregation (`total present / total records`), never averaging percentages; supports the correction+audit workflow.                        |
+| **Chat split into `Chat` / `ChatMembership` / `ChatMessage`**                                                                           | Memberships are queried independently (who's in a room, unread counts); messages are unbounded and must be referenced, never embedded.                     |
+| **One reusable `PermissionRequest` + workflow, not per-module approvals**                                                               | Gate pass, hostel leave/outing, event/academic permissions share one approval engine (see API doc). Avoids duplicated workflow logic.                      |
+| **QR verification via `QRToken`, never PII in the QR**                                                                                  | The QR carries an opaque, short-lived/revocable token id; the server resolves identity.                                                                    |
+| **`AuditLog` append-only**                                                                                                              | Immutable trail for sensitive/admin actions; never stores secrets/OTPs/plaintext.                                                                          |
+| **Career data split** (`CareerProfile`, `Skill`, `StudentSkill`, `Project`, `Certification`, `CareerGoal`, `SkillGap`, `CareerRoadmap`) | Skills are shared taxonomy; a student's skills/projects/certs are independently listed and matched against jobs.                                           |
 
 ## Model catalog
 
@@ -36,13 +36,14 @@ Grouped by domain. Key fields and relationships are listed; each becomes a
 `server/src/models/<Model>.model.ts` in the phase that needs it. `→` = reference.
 
 ### Identity, tenancy & security
-- **Institution** *[global]* — name, slug, domain(s), branding {logo, colors}, storageQuotaBytes, status, → subscription.
+
+- **Institution** _[global]_ — name, slug, domain(s), branding {logo, colors}, storageQuotaBytes, status, → subscription.
 - **Department** — institutionId, name, code, → hodUserId.
-- **User** — institutionId, email (unique per domain), passwordHash (Argon2id), status, → roles[], primaryRole, mfaEnabled, lastLoginAt. *No plaintext, ever.*
+- **User** — institutionId, email (unique per domain), passwordHash (Argon2id), status, → roles[], primaryRole, mfaEnabled, lastLoginAt. _No plaintext, ever._
 - **StudentProfile** — → userId, rollNo, → department, batch, year, section, photoRef, contact (privacy-controlled).
 - **FacultyProfile** — → userId, → department, designation, subjectsTaught[].
 - **AlumniProfile** — → userId, graduationYear, → department, currentOrg, roleTitle, mentorshipOptIn.
-- **Company** *[semi-global]* — name, verified, → recruiters[].
+- **Company** _[semi-global]_ — name, verified, → recruiters[].
 - **Recruiter** — → userId, → company, verifiedByInstitution[].
 - **Role** — key (STUDENT, FACULTY, …), label, → permissions[], isSystem.
 - **Permission** — key (`attendance:read:self`, …), description.
@@ -50,18 +51,20 @@ Grouped by domain. Key fields and relationships are listed; each becomes a
 - **LoginHistory** — → userId, ip, device, result, reason, at.
 - **PasswordReset** — → userId, tokenHash, expiresAt (**TTL**), usedAt, single-use.
 - **MFA** — → userId, type (totp/otp/webauthn), secretRef/credentialRef, verifiedAt.
-- **AuditLog** — institutionId, → actorUserId, action, resourceType, resourceId, result, ip, deviceContext, reason, at. *Append-only.*
+- **AuditLog** — institutionId, → actorUserId, action, resourceType, resourceId, result, ip, deviceContext, reason, at. _Append-only._
 - **StudentID** — → studentProfile, cardNo, validity, photoRef, status. (No sensitive PII in QR.)
 - **QRToken** — institutionId, → subject (user/gatepass/event), purpose, tokenHash, singleUse, expiresAt (**TTL**), revokedAt.
 
 ### Academics
+
 - **Subject** — institutionId, → department, code, name, credits.
 - **Class** — institutionId, → department, batch, section, → subject, → facultyUserId.
 - **Timetable** — institutionId, → class, entries[{day, period, → subject, → faculty, room}].
-- **Attendance** — institutionId, → class, → subject, → studentUserId, date/period, status(present/absent), → markedByUserId. *One doc per (student, period).*
-- **AttendanceCorrection** — → attendance, requestedBy, oldValue, newValue, reason, status, → reviewedBy, decidedAt. *Transactional with AuditLog.*
+- **Attendance** — institutionId, → class, → subject, → studentUserId, date/period, status(present/absent), → markedByUserId. _One doc per (student, period)._
+- **AttendanceCorrection** — → attendance, requestedBy, oldValue, newValue, reason, status, → reviewedBy, decidedAt. _Transactional with AuditLog._
 
 ### Community & communication
+
 - **Announcement** — institutionId, authorUserId, target{scope: college/dept/batch/section/club/hostel/role, refs}, priority, attachments[→File], scheduleAt, expireAt.
 - **Club** — institutionId, name, category, description, → admins[], memberCount, interests[].
 - **ClubMembership** — institutionId, → club, → userId, role(member/admin), status(requested/approved), decidedBy.
@@ -73,28 +76,48 @@ Grouped by domain. Key fields and relationships are listed; each becomes a
 - **Chat** — institutionId, type(DIRECT/GROUP/CLASS/CLUB), name, → createdByUserId, sourceRef
   (class/club for derived chats), directKey, lastMessageAt. Members live in ChatMembership.
 - **ChatMembership** — institutionId, → chat, → userId, role, lastReadMessageId, muted, leftAt.
-- **ChatMessage** — institutionId, → chat, → senderUserId, body, attachmentRef (Part C-3, unused),
+- **ChatMessage** — institutionId, → chat, → senderUserId, body (may be empty when attachments
+  are present), attachmentFileIds[→File] (Part C-3; order only — access lives on the File),
   replyTo, type, clientMessageId, editedAt, deletedAt, deletedByUserId.
 
 **Chat is not E2EE as implemented** (Part C-2). Bodies are stored in plain text so they can be
 moderated; E2EE for protected DMs/groups remains future work and would use established libraries
-only. Deletion is soft but the body is *removed*, not merely hidden.
+only. Deletion is soft but the body is _removed_, not merely hidden.
 
 Indexes created (all tenant-leading):
 
-| Collection | Index | Why |
-| ---------- | ----- | --- |
-| ChatMembership | `{institutionId, userId, chatId}` unique | The access check, and one row per pair so "am I a member?" is never ambiguous. |
-| ChatMembership | `{institutionId, chatId}` | Who is in this chat: member list and message fan-out. |
-| ChatMessage | `{institutionId, chatId, _id: -1}` | The cursor page IS this index; an offset would drift as messages arrive mid-scroll. |
-| ChatMessage | `{institutionId, chatId, senderUserId, clientMessageId}` unique, partial (`clientMessageId` is a string) | Idempotent send: a retry is a duplicate-key error, not a second message. Partial because SYSTEM messages have none. |
-| Chat | `{institutionId, directKey}` unique, partial (`directKey` is a string) | One DM per pair, with the create race settled by the database. |
-| Chat | `{institutionId, type, sourceRef}` unique, partial (`sourceRef` is an objectId) | One chat per class and per club, created lazily on first access. |
-| Chat | `{institutionId, lastMessageAt: -1}` | Chat-list ordering. |
-- **File** — institutionId, ownerUserId, storageKey, originalName, mime, size, checksum, scanStatus(pending/clean/infected), visibility, → linkedResource.
+| Collection     | Index                                                                                                    | Why                                                                                                                 |
+| -------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| ChatMembership | `{institutionId, userId, chatId}` unique                                                                 | The access check, and one row per pair so "am I a member?" is never ambiguous.                                      |
+| ChatMembership | `{institutionId, chatId}`                                                                                | Who is in this chat: member list and message fan-out.                                                               |
+| ChatMessage    | `{institutionId, chatId, _id: -1}`                                                                       | The cursor page IS this index; an offset would drift as messages arrive mid-scroll.                                 |
+| ChatMessage    | `{institutionId, chatId, senderUserId, clientMessageId}` unique, partial (`clientMessageId` is a string) | Idempotent send: a retry is a duplicate-key error, not a second message. Partial because SYSTEM messages have none. |
+| Chat           | `{institutionId, directKey}` unique, partial (`directKey` is a string)                                   | One DM per pair, with the create race settled by the database.                                                      |
+| Chat           | `{institutionId, type, sourceRef}` unique, partial (`sourceRef` is an objectId)                          | One chat per class and per club, created lazily on first access.                                                    |
+| Chat           | `{institutionId, lastMessageAt: -1}`                                                                     | Chat-list ordering.                                                                                                 |
+
+- **File** — institutionId, → ownerUserId, storageKey, originalName (sanitized), extension, mime
+  (verified from the bytes), size, checksum (SHA-256), scanStatus (PENDING / CLEAN / INFECTED /
+  SCAN_FAILED / SKIPPED), scanSignature, visibility (PRIVATE / LINKED), linkedResource{type, id,
+  contextId}, linkedAt, deletedAt, deletedByUserId, deletedReason. _Implemented Part C-3._ Bytes
+  live behind the storage abstraction (local disk by default), never in MongoDB/GridFS.
+  `linkedResource` is generic (`CHAT_MESSAGE`, `ANNOUNCEMENT` today; complaints, lost & found,
+  achievements and resumes plug in later) and access is **inherited** from it at read time.
+
+Indexes created for File (all tenant-leading):
+
+| Index                                                     | Why                                                              |
+| --------------------------------------------------------- | ---------------------------------------------------------------- |
+| `{institutionId, ownerUserId, createdAt: -1}`             | "My files", and the owner's live-bytes sum for the quota.        |
+| `{institutionId, linkedResource.type, linkedResource.id}` | A message's / announcement's attachments in one query.           |
+| `{institutionId, visibility, createdAt}`                  | Orphan cleanup: unattached files past the TTL, tenant by tenant. |
+| `{institutionId, storageKey}` unique                      | One row per stored object.                                       |
+
+Announcement also gains `attachmentFileIds[→File]` (≤ 10, order only).
 
 ### Campus operations
-- **PermissionRequest** — institutionId, → requesterUserId, type(gate/hostel_leave/hostel_outing/industrial_visit/event/academic), payload, workflow[{approverRole/approverUserId, status, decidedAt, note}], status, currentStep. *Single reusable engine.*
+
+- **PermissionRequest** — institutionId, → requesterUserId, type(gate/hostel_leave/hostel_outing/industrial_visit/event/academic), payload, workflow[{approverRole/approverUserId, status, decidedAt, note}], status, currentStep. _Single reusable engine._
 - **GatePass** — institutionId, → permissionRequest, → studentUserId, → qrToken(out), returnQrToken, exitAt, entryAt, status.
 - **GateEvent** — institutionId, → gatePass, direction(exit/entry), → securityUserId, at.
 - **Hostel** — institutionId, name, → warden, blocks[].
@@ -103,33 +126,35 @@ Indexes created (all tenant-leading):
 - **HostelOuting** — institutionId, → permissionRequest, → studentUserId, out, expectedReturn, actualReturn.
 - **MessMenu** — institutionId, → hostel/mess, day, meals[{type, items[]}].
 - **MessFeedback** — institutionId, → messMenu/meal, → userId, rating, comment.
-- **MedicalAppointment** — institutionId, → studentUserId, → staffUserId, slot, reason(**restricted**), status. *Strict access control; medical data protected.*
+- **MedicalAppointment** — institutionId, → studentUserId, → staffUserId, slot, reason(**restricted**), status. _Strict access control; medical data protected._
 - **EmergencyAlert** — institutionId, → issuedBy, target scope, message, at, status.
-- **SOSRequest** — institutionId, → studentUserId, at, location?(optional), targets[], status, response, resolvedAt. *Strict access.*
+- **SOSRequest** — institutionId, → studentUserId, at, location?(optional), targets[], status, response, resolvedAt. _Strict access._
 - **Complaint** — institutionId, → reporterUserId, category, description, image→File, location, priority, → assignee, status, resolutionNote, resolvedAt.
-- **Feedback** — institutionId, category, priority, body, status, adminResponse. *Anonymous: no reporter reference stored; anonymity protected from ordinary admins.*
+- **Feedback** — institutionId, category, priority, body, status, adminResponse. _Anonymous: no reporter reference stored; anonymity protected from ordinary admins._
 - **CampusLocation** — institutionId, name, type, geo{lat,lng}, description. (OpenStreetMap/Leaflet; no key.)
 - **LostFoundItem** — institutionId, kind(lost/found), → reporterUserId, description, image→File, location, date, claim{→claimantUserId, status, verifiedBy}.
 - **Achievement** — institutionId, → studentUserId, category, title, description, evidence→File, verifiedBy?.
 
 ### Career, placement & alumni
+
 - **Job** / **Internship** — institutionId?(or global feed), → company/provider, title, requiredSkills[], degree, gradYear, location, eligibility{}, source, externalId.
 - **JobApplication** — institutionId, → job/internship, → studentUserId, status, timeline[].
 - **CareerProfile** — → studentUserId, targetRole, preferredLocations[], interests[], github, portfolio, resumeRef, gradYear, visibility(controls recruiter access).
-- **Skill** *[global taxonomy]* — name, category.
+- **Skill** _[global taxonomy]_ — name, category.
 - **StudentSkill** — → studentUserId, → skill, level, evidence.
 - **Project** — → studentUserId, title, description, stack[], links.
 - **Certification** — → studentUserId, name, issuer, issuedAt, credentialUrl.
 - **CareerGoal** — → studentUserId, targetRole, targetDate.
-- **SkillGap** — → studentUserId, targetRole, missingSkills[], computedAt. *Deterministic; AI only explains.*
+- **SkillGap** — → studentUserId, targetRole, missingSkills[], computedAt. _Deterministic; AI only explains._
 - **CareerRoadmap** — → studentUserId, targetRole, steps[], source(deterministic/ai-guidance labeled).
 - **CompanyEvent** — institutionId, → company, type, schedule, sponsored?.
 - **Interview** — institutionId, → jobApplication, round, schedule, → interviewer, outcome.
-- **Placement** — institutionId, → studentUserId, → company, role, package?, offerAt. *Package = financial; access-restricted, not exposed broadly.*
+- **Placement** — institutionId, → studentUserId, → company, role, package?, offerAt. _Package = financial; access-restricted, not exposed broadly._
 - **AlumniMentorship** — institutionId, → mentorAlumniUserId, → menteeStudentUserId, status, topic.
 
 ### Platform / SaaS
-- **SponsoredEvent** *[global]* — → company, → event, placement, moderationStatus.
+
+- **SponsoredEvent** _[global]_ — → company, → event, placement, moderationStatus.
 - **InstitutionSubscription** — → institution, plan, limits{seats, storage}, status, period.
 - **StorageUsage** — → institution, usedBytes, updatedAt.
 

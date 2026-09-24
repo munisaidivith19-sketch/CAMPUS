@@ -10,9 +10,9 @@ contracts); enforcement code lands with the features it protects, starting Phase
 ## 1. Core principles
 
 1. Backend is the source of truth. 2. Frontend is never trusted. 3. Authorization is always
-server-side. 4. AI cannot bypass authorization. 5. Tenant isolation is mandatory. 6. Least
-privilege. 7. Sensitive data protected by default. 8. Admin actions are auditable. 9. Established
-cryptography only; never invent crypto. 10. Fail closed for authorization.
+   server-side. 4. AI cannot bypass authorization. 5. Tenant isolation is mandatory. 6. Least
+   privilege. 7. Sensitive data protected by default. 8. Admin actions are auditable. 9. Established
+   cryptography only; never invent crypto. 10. Fail closed for authorization.
 
 ## 2. Defense in depth (layers)
 
@@ -52,27 +52,27 @@ identity → role → permission → tenant → resource ownership/access → bu
 
 ## 5. Threats & controls matrix
 
-| Threat | Control |
-| ------ | ------- |
-| XSS | Output encoding, React auto-escaping, CSP, no `dangerouslySetInnerHTML` on untrusted data, sanitize rich text |
-| NoSQL injection | Zod at boundary; operator/`$`-key stripping; allowlisted query fields; parameterized Mongoose queries; never spread user input into filters/updates |
-| CSRF | Bearer tokens for API; for cookie-based refresh, SameSite + CSRF token on state-changing cookie routes |
-| Brute force / credential stuffing | Strict rate limits on auth routes (Redis-backed, see below), lockout/backoff, MFA, generic errors |
-| Session hijacking | Short-lived access tokens, refresh rotation + reuse detection, Secure/httpOnly cookies (web), SecureStore (mobile), device binding signals |
-| Broken auth/z | Central policy layer, fail-closed, authorization tests |
-| API abuse / DoS | Rate limits, request size limits, pagination caps, timeouts, connection/WS limits |
-| Malicious uploads / ZIP bombs | Size + MIME + magic-byte checks, ClamAV scan, archive entry/ratio limits, random non-executable storage, signed authorized downloads |
-| SSRF | Outbound allowlist for provider calls; no user-controlled URLs fetched server-side without validation |
-| Open redirects / clickjacking | Redirect allowlist; `X-Frame-Options`/`frame-ancestors` |
-| Secret leakage | Secrets in `.env` only, never committed, never in client bundles; secret scanning in CI |
-| Prompt injection / AI data leakage | AI inherits caller authorization; tool allowlists; input/output filtering; context isolation (see §9) |
-| Dependency vulns | `npm audit`, Dependabot, Trivy, Semgrep in CI |
+| Threat                             | Control                                                                                                                                             |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| XSS                                | Output encoding, React auto-escaping, CSP, no `dangerouslySetInnerHTML` on untrusted data, sanitize rich text                                       |
+| NoSQL injection                    | Zod at boundary; operator/`$`-key stripping; allowlisted query fields; parameterized Mongoose queries; never spread user input into filters/updates |
+| CSRF                               | Bearer tokens for API; for cookie-based refresh, SameSite + CSRF token on state-changing cookie routes                                              |
+| Brute force / credential stuffing  | Strict rate limits on auth routes (Redis-backed, see below), lockout/backoff, MFA, generic errors                                                   |
+| Session hijacking                  | Short-lived access tokens, refresh rotation + reuse detection, Secure/httpOnly cookies (web), SecureStore (mobile), device binding signals          |
+| Broken auth/z                      | Central policy layer, fail-closed, authorization tests                                                                                              |
+| API abuse / DoS                    | Rate limits, request size limits, pagination caps, timeouts, connection/WS limits                                                                   |
+| Malicious uploads / ZIP bombs      | Size + MIME + magic-byte checks, ClamAV scan, archive entry/ratio limits, random non-executable storage, signed authorized downloads                |
+| SSRF                               | Outbound allowlist for provider calls; no user-controlled URLs fetched server-side without validation                                               |
+| Open redirects / clickjacking      | Redirect allowlist; `X-Frame-Options`/`frame-ancestors`                                                                                             |
+| Secret leakage                     | Secrets in `.env` only, never committed, never in client bundles; secret scanning in CI                                                             |
+| Prompt injection / AI data leakage | AI inherits caller authorization; tool allowlists; input/output filtering; context isolation (see §9)                                               |
+| Dependency vulns                   | `npm audit`, Dependabot, Trivy, Semgrep in CI                                                                                                       |
 
 ### Chat: threat model, and what "secure" does and does not mean here
 
 **Chat is NOT end-to-end encrypted.** Messages are stored server-side in plain text, because the
 institution has to be able to moderate them. Nothing in the product is labelled E2EE, and the UI
-says so on the page. What chat *does* guarantee:
+says so on the page. What chat _does_ guarantee:
 
 - **TLS in transit**, for both HTTP and the WebSocket.
 - **Membership is the grant.** An active `ChatMembership` row is the only thing that opens a
@@ -108,7 +108,7 @@ deployment must set `REDIS_URL`.**
 
 If Redis is unreachable the limiters **fail open**: the request is not rejected, it is counted by
 the in-process store instead, and a warning is logged (throttled to one per minute). This is a
-deliberate exception to the fail-closed rule in §3, which governs *authorization* — an ambiguous
+deliberate exception to the fail-closed rule in §3, which governs _authorization_ — an ambiguous
 policy decision must deny. Rate limiting is an availability control that grants nothing, so
 failing closed would convert a Redis blip into a campus-wide login outage and would hand anyone
 who can disrupt Redis a denial-of-service against every user. The degraded mode still enforces the
@@ -123,15 +123,34 @@ attempt cap, per-user reset throttling, generic responses, MFA) do not depend on
 - Request body size limits, JSON parse limits, per-route timeouts.
 - Consistent error envelope; **no stack traces/secrets/DB internals** in responses.
 
-## 7. File security pipeline
+## 7. File security pipeline (implemented, Phase 3 Part C-3)
 
 ```text
-auth → authorization → size check → MIME check → magic-byte/content check → malware scan (ClamAV)
-     → random-name non-executable storage → audit → authorized/signed download only
+auth → file:upload → per-user rate limit → quota → size (Content-Length, then while streaming)
+     → extension + declared MIME allowlisted → magic bytes agree → text/markup/polyglot checks
+     → ZIP/Office central-directory limits → ClamAV INSTREAM → metadata row → audit
+download: re-authorize → short-lived HMAC URL (file+user+tenant+expiry) → re-authorize again
+          on use → attachment + verified type + nosniff + CSP sandbox + no-store
 ```
 
-Uploads never execute; downloads always re-authorize. ZIP handling enforces entry count and
-decompression-ratio limits (ZIP-bomb defense). Path traversal is impossible (generated storage keys).
+| Threat                                               | Control                                                                                                                                                                                                                                                                          |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Oversized upload / disk exhaustion                   | `MAX_UPLOAD_BYTES` checked from `Content-Length` **and** enforced while streaming (busboy limit + a metered writer that aborts and deletes the temp file); per-user quota across live files; per-user upload rate limit (own Redis prefix, same fail-open policy).               |
+| Type confusion (HTML-as-PNG, EXE-as-PDF, SVG)        | Allowlist by extension + declared MIME; magic bytes read by `file-type` must name the same type; SVG, HTML, JS and executables are not on the list and fail the magic check even when renamed.                                                                                   |
+| Polyglots                                            | Markup markers (`<script`, `<html`, `<svg`, `<iframe`, …) refused anywhere in images, PDFs and text; a ZIP end-of-central-directory record trailing a non-ZIP file is refused.                                                                                                   |
+| ZIP bombs (incl. DOCX/XLSX/PPTX bombs)               | Central directory only, never extracted: entry count, total uncompressed size, per-entry and overall compression ratio, nested archives, absolute and `..` entry paths.                                                                                                          |
+| Malware                                              | ClamAV `INSTREAM`. Infected: bytes destroyed, row kept as `INFECTED`, audited, `MALWARE_DETECTED`. Scanner unreachable: `SCAN_FAILED` — held, not attachable, not downloadable ("could not check" is not "clean").                                                               |
+| Path traversal / executable storage                  | Keys are 256-bit random with a tenant prefix and a strict pattern, and the resolved path must stay inside the root; files are written `0o600` via temp file + atomic rename; the root is outside anything served.                                                                |
+| Filename tricks (RTL override, control chars, `../`) | Display names sanitized; `Content-Disposition` built with an ASCII fallback and RFC 5987 `filename*`.                                                                                                                                                                            |
+| Unauthorized access / IDOR / cross-tenant            | No per-file ACL: `PRIVATE` → owner only; `LINKED` → whoever the linked resource's own read rule admits, evaluated at read time. Every miss is `NOT_FOUND`. Attaching requires owning a live, unattached, scan-passed file, claimed with one conditional update (all or nothing). |
+| Leaked / replayed download link                      | Links live 300 s, bind file + user + tenant (HMAC-SHA256, constant-time compare), and the content endpoint re-authorizes the bound user at use time — removal from the chat or suspension kills an unexpired link.                                                               |
+| Browser rendering a download                         | `Content-Disposition: attachment`, verified `Content-Type`, `nosniff`, `Content-Security-Policy: sandbox`, `Cache-Control: private, no-store`. The web client never renders file content inline.                                                                                 |
+| Orphans                                              | Unattached files are removed after `FILE_ORPHAN_TTL_HOURS` by a job that claims each file with a conditional update, so concurrent instances never double-delete.                                                                                                                |
+
+Residual risks, stated plainly: without ClamAV enabled, files are **not scanned** (development
+only, and labelled so; in production such files are not downloadable). Two simultaneous uploads
+by one user can overshoot the quota by at most one file. Signature-based scanning does not catch
+novel malware. `FILE_SIGNING_SECRET` must be set (and identical) on every instance in production.
 
 ## 8. Audit logging
 

@@ -237,6 +237,10 @@ export async function seedDevelopmentData(domain = 'jnn.edu.in'): Promise<SeedRe
   const { seedFiles } = await import('./seeders.files.js');
   await seedFiles(institution);
 
+  // Phase 3 completion: an open report so the moderation queue is demonstrable.
+  const { seedModeration } = await import('./seeders.moderation.js');
+  await seedModeration(institution);
+
   // A second, tiny synthetic institution, so tenant isolation can be demonstrated live: its
   // student can sign in, but every id from the first institution is NOT_FOUND to them.
   const other = await ensureInstitution({
